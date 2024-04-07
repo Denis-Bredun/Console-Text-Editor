@@ -75,7 +75,40 @@ public:
 	}
 };
 
-class Editor;
+class Session;
+class SessionsHistory;
+
+class Editor {
+private:
+	friend class Program;
+
+	static SessionsHistory* sessionsHistory;
+	static Session* currentSession;
+	static string* currentText;
+
+	void tryToLoadSessions();
+	void tryToUnloadSessions();
+
+public:
+	Editor();
+
+	~Editor() {
+		delete sessionsHistory;
+		delete currentText;
+	}
+
+	void copy(string textToProcess, int startPosition, int endPosition);
+	void paste(string* textToProcess, string textToPaste, int startPosition, int endPosition);
+	void cut(string* textToProcess, int startPosition, int endPosition);
+	void remove(string* textToProcess, int startPosition, int endPosition);
+
+	static void setCurrentSession(Session* currentSession);
+	static Session* getCurrentSession();
+	static SessionsHistory* getSessionsHistory();
+	static void setCurrentText(string* text);
+	static string* getCurrentText();
+	static void printCurrentText();
+};
 
 enum class TypesOfCommands {
 	Copy,
@@ -120,12 +153,12 @@ public:
 
 		if (startPosition > endPosition)
 			swap(startPosition, endPosition);
-		if (endPosition > (*editor->getCurrentText()).size() - 1)
-			endPosition = (*editor->getCurrentText()).size() - 1;
+		if (endPosition > editor->getCurrentText()->size() - 1)
+			endPosition = editor->getCurrentText()->size() - 1;
 
 		this->startPosition = startPosition;
 		this->endPosition = endPosition;
-		this->textToProcess = *editor->getCurrentText();
+		this->textToProcess = *(editor->getCurrentText());
 		this->previousCommand = previousCommand;
 
 		if (typeOfCommand == TypesOfCommands::Paste)
@@ -667,83 +700,68 @@ FilesManager::AVAILABLE_SESSIONS_FILE = "Available_Sessions.txt",
 FilesManager::AVAILABLE_SESSIONS_FULLPATH = METADATA_DIRECTORY + AVAILABLE_SESSIONS_FILE,
 FilesManager::SESSIONS_DIRECTORY = "Sessions\\";
 
+void Editor::tryToLoadSessions() {
+	FilesManager::readSessionsMetadata(sessionsHistory, this);
+	FilesManager::readClipboardMetadata(sessionsHistory);
+}
 
-class Editor {
-private:
-	friend class Program;
+void Editor::tryToUnloadSessions() {
+	FilesManager::writeClipboardMetadata(sessionsHistory);
+	FilesManager::writeSessionsMetadata(sessionsHistory);
+}
 
-	static SessionsHistory* sessionsHistory;
-	static Session* currentSession;
-	static string* currentText;
+Editor::Editor() {
+	this->sessionsHistory = new SessionsHistory();
+	currentText = new string("");
+}
 
-	void tryToLoadSessions() {
-		FilesManager::readSessionsMetadata(sessionsHistory, this);
-		FilesManager::readClipboardMetadata(sessionsHistory);
-	}
+void Editor::copy(string textToProcess, int startPosition, int endPosition) {
+	this->currentSession->getClipboard()->addData(textToProcess.substr(startPosition, endPosition - startPosition + 1));
+}
 
-	void tryToUnloadSessions() {
-		FilesManager::writeClipboardMetadata(sessionsHistory);
-		FilesManager::writeSessionsMetadata(sessionsHistory);
-	}
-public:
-	Editor() {
-		this->sessionsHistory = new SessionsHistory();
-		currentText = new string("");
-	}
+void Editor::paste(string* textToProcess, string textToPaste, int startPosition, int endPosition) {
+	if (startPosition == endPosition)
+		(*textToProcess).insert(startPosition, textToPaste);
+	else
+		(*textToProcess).replace(startPosition, endPosition - startPosition + 1, textToPaste);
+	*currentText = *textToProcess;
+}
 
-	~Editor() {
-		delete sessionsHistory;
-		delete currentText;
-	}
+void Editor::cut(string* textToProcess, int startPosition, int endPosition) {
+	copy(*textToProcess, startPosition, endPosition);
+	remove(textToProcess, startPosition, endPosition);
+	*currentText = *textToProcess;
+}
 
-	void copy(string textToProcess, int startPosition, int endPosition) {
-		this->currentSession->getClipboard()->addData(textToProcess.substr(startPosition, endPosition - startPosition + 1));
-	}
+void Editor::remove(string* textToProcess, int startPosition, int endPosition) {
+	(*textToProcess).erase(startPosition, endPosition - startPosition + 1);
+	*currentText = *textToProcess;
+}
 
-	void paste(string* textToProcess, string textToPaste, int startPosition, int endPosition) {
-		if (startPosition == endPosition)
-			(*textToProcess).insert(startPosition, textToPaste);
-		else
-			(*textToProcess).replace(startPosition, endPosition - startPosition + 1, textToPaste);
-		*currentText = *textToProcess;
-	}
+void Editor::setCurrentSession(Session* currentSession) {
+	currentSession = currentSession;
+}
 
-	void cut(string* textToProcess, int startPosition, int endPosition) {
-		copy(*textToProcess, startPosition, endPosition);
-		remove(textToProcess, startPosition, endPosition);
-		*currentText = *textToProcess;
-	}
+Session* Editor::getCurrentSession() {
+	return currentSession;
+}
 
-	void remove(string* textToProcess, int startPosition, int endPosition) {
-		(*textToProcess).erase(startPosition, endPosition - startPosition + 1);
-		*currentText = *textToProcess;
-	}
+SessionsHistory* Editor::getSessionsHistory() {
+	return sessionsHistory;
+}
 
-	static void setCurrentSession(Session* currentSession) {
-		currentSession = currentSession;
-	}
+void Editor::setCurrentText(string* text) {
+	currentText = text;
+}
 
-	static Session* getCurrentSession() {
-		return currentSession;
-	}
+string* Editor::getCurrentText() {
+	return currentText;
+}
 
-	static SessionsHistory* getSessionsHistory() {
-		return sessionsHistory;
-	}
-
-	static void setCurrentText(string* text) {
-		currentText = text;
-	}
-
-	static string* getCurrentText() {
-		return currentText;
-	}
-
-	static void printCurrentText() {
-		cout << "\nЗміст файлу " << currentSession->getName() << ":\n";
-		cout << *currentText << endl;
-	}
-};
+void Editor::printCurrentText() {
+	cout << "\nЗміст файлу " << currentSession->getName() << ":\n";
+	cout << *currentText << endl;
+}
 
 SessionsHistory* Editor::sessionsHistory;
 Session* Editor::currentSession;
@@ -820,7 +838,7 @@ void UndoCommand::execute() {
 
 void UndoCommand::undo() { }
 
-Command* UndoCommand::copy() { }
+Command* UndoCommand::copy() { return nullptr; }
 
 void RedoCommand::execute() {
 	commandToUndo->execute();
@@ -828,7 +846,7 @@ void RedoCommand::execute() {
 
 void RedoCommand::undo() { }
 
-Command* RedoCommand::copy() { }
+Command* RedoCommand::copy() { return nullptr; }
 
 void Session::printCommandsHistory() {
 	if (isCommandsHistoryEmpty()) {
@@ -986,7 +1004,7 @@ private:
 		auto clipboard = Editor::getCurrentSession()->getClipboard();
 		if (clipboard->isEmpty()) {
 			Notification::errorNotification("в буфері обміну ще немає даних!");
-			return;
+			return "";
 		}
 
 		int choice;
@@ -998,7 +1016,7 @@ private:
 		{
 		case 0:
 			cout << "\nПовернення до меню вибору способа додавання текста.\n\n";
-			return;
+			return "";
 		case 1:
 			return *(clipboard->end() - 1);
 		case 2:
@@ -1100,7 +1118,7 @@ private:
 		switch (choice) {
 		case 0:
 			cout << "\nПовернення до Меню дій над змістом.\n\n";
-			return;
+			return false;
 		case 1:
 		case 2:
 			pasteTextInBeginningOrEnd(choice, textToPaste);
@@ -1157,7 +1175,7 @@ private:
 		{
 		case 0:
 			cout << "\nПовернення до Меню дій над змістом.\n\n";
-			return;
+			return false;
 		case 1:
 			return delCopyOrCutWholeText(typeOfCommand, actionInPast);
 		case 2:
