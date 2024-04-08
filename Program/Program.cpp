@@ -1,34 +1,22 @@
 ﻿#include <iostream>
 #include <stack>
-#include <deque>
-#include <vector>
-#include <regex>
-#include <string>
-#include <fstream>
-#include <algorithm>
 #include <functional>
-#include <numeric>
-#include <cwchar>
-#include <conio.h>
+#include <fstream>
 #include <map>
 #include <filesystem>
-#include <typeinfo>
-#define _WIN32_WINNT 0x0500
 #include <windows.h>
 using namespace std;
-#pragma comment(lib, "user32")
 
 #pragma warning (disable: 4996)
-
-using deque_iter = deque<string>::const_iterator;
-
 
 class centerAlign {
 private:
 	string text;
 	static CONSOLE_SCREEN_BUFFER_INFO csbi;
 public:
-	explicit centerAlign(const string& str) : text(str) { GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi); }
+	explicit centerAlign(const string& str) : text(str) { 
+		GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi); 
+	}
 
 	friend ostream& operator<<(ostream& os, const centerAlign& cs) {
 		int width = csbi.srWindow.Right - csbi.srWindow.Left + 10;
@@ -77,11 +65,11 @@ public:
 		clipboard.push(data);
 	}
 
-	deque_iter begin() {
+	deque<string>::const_iterator begin() {
 		return clipboard._Get_container().begin();
 	}
 
-	deque_iter end() {
+	deque<string>::const_iterator end() {
 		return clipboard._Get_container().end();
 	}
 
@@ -277,8 +265,6 @@ public:
 	int sizeOfCommandsHistory() {
 		return commandsHistory.size();
 	}
-
-	void printCommandsHistory();
 
 	Clipboard* getClipboard() {
 		return clipboard;
@@ -515,9 +501,7 @@ private:
 			{
 				command = session->getCommandByIndex(j);
 
-				if (string(typeid(*command).name()) == "class CopyCommand")
-					typeOfCommand = "CopyCommand\n";
-				else if (string(typeid(*command).name()) == "class PasteCommand")
+				if (string(typeid(*command).name()) == "class PasteCommand")
 					typeOfCommand = "PasteCommand\n";
 				else if (string(typeid(*command).name()) == "class CutCommand")
 					typeOfCommand = "CutCommand\n";
@@ -526,12 +510,9 @@ private:
 
 				ofs_session << typeOfCommand;
 
-				if (string(typeid(*command).name()) == "class CopyCommand")
-					continue;
-
 				ofs_session << delimiter;
 
-				ofs_session << command->textToProcess;
+				ofs_session << command->textToProcess << endl;
 
 				if (command->textToProcess == "")
 					ofs_session << endl;
@@ -541,7 +522,7 @@ private:
 				if(typeOfCommand == "PasteCommand\n")
 
 				{
-					ofs_session << command->textToPaste;
+					ofs_session << command->textToPaste << endl;
 
 					if (command->textToPaste == "")
 						ofs_session << endl;
@@ -594,13 +575,7 @@ private:
 			for (int j = 0; j < countOfCommands; j++)
 			{
 				getline(ifs_session, line);
-				if (line == "CopyCommand")
-				{
-					command = new CopyCommand(editor);
-					session->addCommandAsLast(command);
-					continue;
-				}
-				else if (line == "CutCommand")
+				if (line == "CutCommand")
 					command = new CutCommand(editor);
 				else if (line == "PasteCommand")
 					command = new PasteCommand(editor);
@@ -649,7 +624,7 @@ private:
 
 		string delimiter = "---\n";
 		Clipboard* clipboard;
-		deque_iter element, end;
+		deque<string>::const_iterator element, end;
 
 		if (!filesystem::exists(CLIPBOARD_METADATA_DIRECTORY))
 			filesystem::create_directories(CLIPBOARD_METADATA_DIRECTORY);
@@ -853,7 +828,6 @@ void CutCommand::execute() {
 
 void CutCommand::undo() {
 	*(Editor::getCurrentText()) = previousCommand->getTextToProcess();
-	Editor::getCurrentSession()->getClipboard()->deleteLastData();
 }
 
 Command* CutCommand::copy() {
@@ -894,26 +868,6 @@ void RedoCommand::execute() {
 void RedoCommand::undo() { }
 
 Command* RedoCommand::copy() { return nullptr; }
-
-void Session::printCommandsHistory() {
-	if (isCommandsHistoryEmpty()) {
-		Notification::errorNotification("за ций сеанс ще не було виконано жодної команди!");
-		return;
-	}
-	for (int i = 0; i < commandsHistory.size(); i++)
-	{
-		cout << "\n" << centerAlign(to_string(i + 1) + ") ");
-		if (string(typeid(*(commandsHistory._Get_container()[i])).name()) == "class CopyCommand")
-			cout << centerAlign("CopyCommand\n");
-		else if (string(typeid(*(commandsHistory._Get_container()[i])).name()) == "class PasteCommand")
-			cout << centerAlign("PasteCommand\n");
-		else if (string(typeid(*(commandsHistory._Get_container()[i])).name()) == "class CutCommand")
-			cout << centerAlign("CutCommand\n");
-		else
-			cout << centerAlign("DeleteCommand\n");
-	}
-	cout << endl;
-}
 
 class CommandsManager {
 private:
@@ -972,11 +926,14 @@ public:
 
 		manager[typeOfCommand]->execute();
 
-		if (typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo)
+		if (typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo && typeOfCommand != TypesOfCommands::Copy)
 			Editor::getCurrentSession()->addCommandAsLast(manager[typeOfCommand]->copy());
 
 		if (typeOfCommand != TypesOfCommands::Undo)
-			Editor::getCurrentSession()->setCurrentCommandIndexInHistory(Editor::getCurrentSession()->getCurrentCommandIndexInHistory() + 1);
+		{
+			if (typeOfCommand != TypesOfCommands::Copy)
+				Editor::getCurrentSession()->setCurrentCommandIndexInHistory(Editor::getCurrentSession()->getCurrentCommandIndexInHistory() + 1);
+		}
 		else
 			Editor::getCurrentSession()->setCurrentCommandIndexInHistory(Editor::getCurrentSession()->getCurrentCommandIndexInHistory() - 1);
 	}
@@ -1279,7 +1236,7 @@ private:
 	}
 
 	bool undoAction() {
-		if (Editor::getCurrentSession()->sizeOfCommandsHistory() > 1 && Editor::getCurrentSession()->getCurrentCommandIndexInHistory() != -1)
+		if (Editor::getCurrentSession()->sizeOfCommandsHistory() > 0 && Editor::getCurrentSession()->getCurrentCommandIndexInHistory() != -1)
 		{
 			commandsManager->invokeCommand(TypesOfCommands::Undo);
 			Notification::successNotification("команда була успішно скасована!");
@@ -1513,7 +1470,7 @@ private:
 		CONSOLE_FONT_INFOEX cfi;
 		cfi.cbSize = sizeof(cfi);
 		cfi.dwFontSize.Y = sizeOfFont;
-		std::wcscpy(cfi.FaceName, L"Consolas"); // Choose your font
+		wcscpy(cfi.FaceName, L"Consolas");
 		SetCurrentConsoleFontEx(GetStdHandle(STD_OUTPUT_HANDLE), FALSE, &cfi);
 	}
 
@@ -1545,7 +1502,7 @@ public:
 			{
 			case 0:
 				cout << "\n" << centerAlign("До побачення!\n");
-				editor->tryToUnloadSessions();
+				editor->tryToUnloadSessions(); //протестить!
 				delete editor;
 				exit(0);
 			case 1:

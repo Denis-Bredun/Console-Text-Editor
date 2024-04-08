@@ -1,0 +1,47 @@
+t.txt
+6
+5
+PasteCommand
+---
+Hello!
+---
+Hello!
+---
+0
+0
+CutCommand
+---
+He
+---
+2
+5
+PasteCommand
+---
+Hello  
+---
+llo 
+---
+1
+1
+PasteCommand
+---
+Hello  ! how are  
+---
+! how are 
+---
+6
+6
+PasteCommand
+---
+Hello  ! how are   you? 
+---
+ you?
+---
+17
+17
+DeleteCommand
+---
+Hellow are   you? 
+---
+4
+9
