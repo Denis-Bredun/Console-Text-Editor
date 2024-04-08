@@ -10,25 +10,30 @@ class centerAlign {
 private:
 	std::string text;
 	static CONSOLE_SCREEN_BUFFER_INFO csbi;
+	static int coefficientConsideringTheSizeOfText, width, padding;
+
 public:
 	explicit centerAlign(const std::string& str) : text(str) { 
 		GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi); 
+		coefficientConsideringTheSizeOfText = 10;
+		width = csbi.srWindow.Right - csbi.srWindow.Left + coefficientConsideringTheSizeOfText;
 	}
 
 	friend std::ostream& operator<<(std::ostream& os, const centerAlign& cs) {
-		int width = csbi.srWindow.Right - csbi.srWindow.Left + 10;
-		int padding = (width - cs.text.size()) / 2;
+		padding = (width - cs.text.size()) / 2;
 		os << std::string(padding, ' ') << cs.text;
 		return os;
 	}
 };
 
 CONSOLE_SCREEN_BUFFER_INFO centerAlign::csbi;
+int centerAlign::coefficientConsideringTheSizeOfText, centerAlign::width, centerAlign::padding;
 
 class Notification {
 private:
+	static HANDLE consoleHandle;
+
 	static void changeConsoleColor(int colorCode = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE) {
-		HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 		SetConsoleTextAttribute(consoleHandle, colorCode);
 	}
 
@@ -39,6 +44,10 @@ private:
 	}
 
 public:
+	static void setUp() {
+		consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	}
+
 	static void successNotification(std::string text) {
 		printTextWithSpecificColor(10, "Успіх: " + text);
 		system("pause");
@@ -52,6 +61,8 @@ public:
 			system("cls");
 	}
 };
+
+HANDLE Notification::consoleHandle;
 
 class Clipboard {
 private:
@@ -1486,6 +1497,7 @@ public:
 	void setUp() {
 		setConsoleFullScreenAndNonresized();
 		setConsoleFont(22);
+		Notification::setUp();
 	}
 
 	void executeMainMenu() {
