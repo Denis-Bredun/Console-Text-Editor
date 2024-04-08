@@ -8,13 +8,37 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
+#include <cwchar>
+#include <conio.h>
 #include <map>
 #include <filesystem>
-#include <windows.h>
 #include <typeinfo>
+#define _WIN32_WINNT 0x0500
+#include <windows.h>
 using namespace std;
+#pragma comment(lib, "user32")
+
+#pragma warning (disable: 4996)
 
 using deque_iter = deque<string>::const_iterator;
+
+
+class centerAlign {
+private:
+	string text;
+	static CONSOLE_SCREEN_BUFFER_INFO csbi;
+public:
+	explicit centerAlign(const string& str) : text(str) { GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi); }
+
+	friend ostream& operator<<(ostream& os, const centerAlign& cs) {
+		int width = csbi.srWindow.Right - csbi.srWindow.Left + 10;
+		int padding = (width - cs.text.size()) / 2;
+		os << string(padding, ' ') << cs.text;
+		return os;
+	}
+};
+
+CONSOLE_SCREEN_BUFFER_INFO centerAlign::csbi;
 
 class Notification {
 private:
@@ -25,17 +49,22 @@ private:
 
 	static void printTextWithSpecificColor(int colorCode, string text) {
 		changeConsoleColor(colorCode);
-		cout << "\n" << text << "\n\n";
+		cout << "\n" << centerAlign("" + text + "\n\n");
 		changeConsoleColor();
 	}
 
 public:
 	static void successNotification(string text) {
 		printTextWithSpecificColor(10, "Успіх: " + text);
+		system("pause");
+		system("cls");
 	}
 
-	static void errorNotification(string text) {
+	static void errorNotification(string text, bool shallConsoleBeCleaned = true) {
 		printTextWithSpecificColor(12, "Помилка: " + text);
+		system("pause");
+		if(shallConsoleBeCleaned)
+			system("cls");
 	}
 };
 
@@ -94,7 +123,8 @@ public:
 
 	~Editor() {
 		delete sessionsHistory;
-		delete currentText;
+		if(currentText)
+			delete (currentText);
 	}
 
 	void copy(string textToProcess, int startPosition, int endPosition);
@@ -140,10 +170,10 @@ public:
 		return textToProcess;
 	}
 
-	void setParameters(TypesOfCommands typeOfCommand, Command* previousCommand, Command* commandToUndo = nullptr, Command* commandToRedo = nullptr, int startPosition = 0, int endPosition = 0, string textToPaste = "") {
+	void setParameters(TypesOfCommands typeOfCommand, Command* previousCommand, Command* commandToUndo, Command* commandToRedo, int startPosition, int endPosition, string textToPaste) {
 		if (typeOfCommand == TypesOfCommands::Undo)
 		{
-			this->commandToRedo = commandToRedo;
+			this->commandToUndo = commandToUndo;
 			return;
 		}
 		else if (typeOfCommand == TypesOfCommands::Redo) {
@@ -153,12 +183,12 @@ public:
 
 		if (startPosition > endPosition)
 			swap(startPosition, endPosition);
-		if (endPosition > editor->getCurrentText()->size() - 1)
-			endPosition = editor->getCurrentText()->size() - 1;
+		if (endPosition > Editor::getCurrentText()->size() - 1)
+			endPosition = Editor::getCurrentText()->size() - 1;
 
 		this->startPosition = startPosition;
 		this->endPosition = endPosition;
-		this->textToProcess = *(editor->getCurrentText());
+		this->textToProcess = *(Editor::getCurrentText());
 		this->previousCommand = previousCommand;
 
 		if (typeOfCommand == TypesOfCommands::Paste)
@@ -177,6 +207,12 @@ public:
 	Session() { 
 		clipboard = new Clipboard(); 
 		currentCommandIndexInHistory = -1;
+	}
+
+	Session(string filename) {
+		clipboard = new Clipboard();
+		currentCommandIndexInHistory = -1;
+		name = filename;
 	}
 
 	~Session() {
@@ -325,7 +361,7 @@ public:
 
 	void printSessionsHistory() {
 		for (int i = 0; i < sessions.size(); i++)
-			cout << "\nСеанс #" << i + 1 << ": " << sessions._Get_container()[i]->getName();
+			cout << "\n" << centerAlign("Сеанс #" + to_string(i + 1) + ": " + sessions._Get_container()[i]->getName());
 		cout << endl;
 	}
 };
@@ -423,7 +459,7 @@ private:
 	}
 
 	static void deleteMetadataForDeletedSessions(SessionsHistory* sessionsHistory, string directory) {
-		if (!filesystem::exists(SESSIONS_DIRECTORY))
+		if (!filesystem::exists(directory))
 			return;
 
 		stack<string> filesFromMetadataDirectory = getFilepathsForMetadata(directory);
@@ -469,7 +505,7 @@ private:
 			filename = session->getName();
 			ofs_aval_session << filename << endl;
 
-			ofstream ofs_session(SESSIONS_DIRECTORY  + filename);
+			ofstream ofs_session(SESSIONS_METADATA_DIRECTORY + filename);
 
 			ofs_session << session->getName() << endl;
 			ofs_session << session->sizeOfCommandsHistory() << endl;
@@ -544,11 +580,10 @@ private:
 
 		for (int i = 0; i < available_sessions.size(); i++)
 		{
-			ifstream ifs_session(SESSIONS_DIRECTORY + available_sessions._Get_container()[i]);
+			ifstream ifs_session(SESSIONS_METADATA_DIRECTORY + available_sessions._Get_container()[i]);
 
 			getline(ifs_session, line);
-			session = new Session();
-			session->setName(line);
+			session = new Session(line);
 
 			getline(ifs_session, line);
 			countOfCommands = stoi(line);
@@ -721,7 +756,15 @@ void Editor::copy(string textToProcess, int startPosition, int endPosition) {
 
 void Editor::paste(string* textToProcess, string textToPaste, int startPosition, int endPosition) {
 	if (startPosition == endPosition)
+	{
+		if(startPosition + 1 == textToProcess->size())
+		{
+			*textToProcess += " ";
+			startPosition++;
+			endPosition++;
+		}
 		(*textToProcess).insert(startPosition, textToPaste);
+	}
 	else
 		(*textToProcess).replace(startPosition, endPosition - startPosition + 1, textToPaste);
 	*currentText = *textToProcess;
@@ -738,8 +781,8 @@ void Editor::remove(string* textToProcess, int startPosition, int endPosition) {
 	*currentText = *textToProcess;
 }
 
-void Editor::setCurrentSession(Session* currentSession) {
-	currentSession = currentSession;
+void Editor::setCurrentSession(Session* curSession) {
+	currentSession = curSession;
 }
 
 Session* Editor::getCurrentSession() {
@@ -759,7 +802,8 @@ string* Editor::getCurrentText() {
 }
 
 void Editor::printCurrentText() {
-	cout << "\nЗміст файлу " << currentSession->getName() << ":\n";
+	system("cls");
+	cout << "\n" << centerAlign("Зміст файлу " + currentSession->getName() + ":\n");
 	cout << *currentText << endl;
 }
 
@@ -825,7 +869,10 @@ void PasteCommand::execute() {
 }
 
 void PasteCommand::undo() {
-	*(Editor::getCurrentText()) = previousCommand->getTextToProcess();
+	if (previousCommand)
+		*(Editor::getCurrentText()) = previousCommand->getTextToProcess();
+	else
+		*(Editor::getCurrentText()) = "";
 }
 
 Command* PasteCommand::copy() {
@@ -841,7 +888,7 @@ void UndoCommand::undo() { }
 Command* UndoCommand::copy() { return nullptr; }
 
 void RedoCommand::execute() {
-	commandToUndo->execute();
+	*(Editor::getCurrentText()) = commandToRedo->getTextToProcess();
 }
 
 void RedoCommand::undo() { }
@@ -855,17 +902,15 @@ void Session::printCommandsHistory() {
 	}
 	for (int i = 0; i < commandsHistory.size(); i++)
 	{
-		cout << "\n" << i + 1 << ") ";
-		if (string(typeid(*(commandsHistory._Get_container()[i])).name()) == "class UndoCommand")
-			cout << "UndoCommand\n";
-		else if (string(typeid(*(commandsHistory._Get_container()[i])).name()) == "class CopyCommand")
-			cout << "CopyCommand\n";
+		cout << "\n" << centerAlign(to_string(i + 1) + ") ");
+		if (string(typeid(*(commandsHistory._Get_container()[i])).name()) == "class CopyCommand")
+			cout << centerAlign("CopyCommand\n");
 		else if (string(typeid(*(commandsHistory._Get_container()[i])).name()) == "class PasteCommand")
-			cout << "PasteCommand\n";
+			cout << centerAlign("PasteCommand\n");
 		else if (string(typeid(*(commandsHistory._Get_container()[i])).name()) == "class CutCommand")
-			cout << "CutCommand\n";
+			cout << centerAlign("CutCommand\n");
 		else
-			cout << "DeleteCommand\n";
+			cout << centerAlign("DeleteCommand\n");
 	}
 	cout << endl;
 }
@@ -883,17 +928,17 @@ private:
 		if(typeOfCommand == TypesOfCommands::Redo)
 			commandToRedo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurrentCommandIndexInHistory() + 1);
 
-		if (Editor::getCurrentSession()->getCurrentCommandIndexInHistory() != -1 && typeOfCommand == TypesOfCommands::Undo && typeOfCommand == TypesOfCommands::Redo)
+		if (Editor::getCurrentSession()->getCurrentCommandIndexInHistory() != -1 && typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo)
 			previousCommand = Editor::getCurrentSession()->getLastCommand();
 
-		manager[typeOfCommand]->setParameters(typeOfCommand, commandToUndo, commandToRedo, previousCommand, startPosition, endPosition, textToPaste);
+		manager[typeOfCommand]->setParameters(typeOfCommand, previousCommand, commandToUndo, commandToRedo, startPosition, endPosition, textToPaste);
 	}
 
 	void deleteUselessLeftCommandsIfNecessary(TypesOfCommands typeOfCommand) {
 		if (typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo)
 			if (isThereAnyCommandForward()) {
 				int countOfCommandsToDelete = Editor::getCurrentSession()->sizeOfCommandsHistory() - 1 - Editor::getCurrentSession()->getCurrentCommandIndexInHistory();
-				for (int i = 1; i < countOfCommandsToDelete; i++)
+				for (int i = 1; i <= countOfCommandsToDelete; i++)
 					Editor::getCurrentSession()->deleteLastCommand();
 			}
 	}
@@ -955,49 +1000,52 @@ private:
 		return firstOption <= convertedValue && convertedValue <= lastOption;
 	}
 
-	int enterNumberInRange(string message, int firstOption, int lastOption, string error = "були введені зайві символи або число, яке виходить за межі набору цифр наданих варіантів!") {
+	int enterNumberInRange(string message, int firstOption, int lastOption, bool shallConsoleBeCleaned = true, string error = "були введені зайві символи або число, яке виходить за межі набору цифр наданих варіантів!") {
 		bool isOptionVerified = false;
 		string option;
 
-		cout << "\n" << message;
+		cout << "\n" << centerAlign(message);
 		getline(cin, option);
 
 		isOptionVerified = validateEnteredNumber(option, firstOption, lastOption);
 
 		if (!isOptionVerified)
-			Notification::errorNotification(error);
+			Notification::errorNotification(error, shallConsoleBeCleaned);
 
 		return isOptionVerified? stoi(option) : -1;
 	}
 
 	void wayToGetTextForAddingMenu(int& choice) {
-		cout << "\nЯк ви хочете додати текст:\n";
-		cout << "0. Назад\n";
-		cout << "1. Ввівши з клавіатури\n";
-		cout << "2. З буферу обміну\n";
+		cout << "\n" << centerAlign("Як ви хочете додати текст:\n");
+		cout << centerAlign("0. Назад\n");
+		cout << centerAlign("1. Ввівши з клавіатури\n");
+		cout << centerAlign("2. З буферу обміну\n");
 		choice = enterNumberInRange("Ваш вибір: ", 0, 2);
 	}
 
 	string getTextUsingKeyboard() {
 		string line, text;
 
-		cout << "\nВведіть текст (зупинити - з наступного рядка введіть -1):\n";
+		cout << "\n" << centerAlign("Введіть текст (зупинити - з наступного рядка введіть -1):\n");
 		while (getline(cin, line)) {
 			if (line == "-1")
 				break;
-			text += line + "\n";
+			else if (line == "")
+				text += "\n";
+			else
+				text += line;
 		}
 
 		return text;
 	}
 
 	void getTextFromClipboardMenu(int& choice) {
-		cout << "\nЯкі дані бажаєте отримати з буферу обміну:\n";
-		cout << "0. Назад\n";
-		cout << "1. Останні\n";
-		cout << "2. Найперші\n";
-		cout << "3. За індексом\n";
-		choice = enterNumberInRange("Ваш вибір: ", 1, 3);
+		cout << "\n" << centerAlign("Які дані бажаєте отримати з буферу обміну:\n");
+		cout << centerAlign("0. Назад\n");
+		cout << centerAlign("1. Останні\n");
+		cout << centerAlign("2. Найперші\n");
+		cout << centerAlign("3. За індексом\n");
+		choice = enterNumberInRange("Ваш вибір: ", 0, 3);
 	}
 
 	string getTextFromClipboard() {
@@ -1009,13 +1057,16 @@ private:
 
 		int choice;
 
+		system("cls");
 		clipboard->printClipboard();
 		getTextFromClipboardMenu(choice);
 
 		switch (choice)
 		{
 		case 0:
-			cout << "\nПовернення до меню вибору способа додавання текста.\n\n";
+			cout << "\n" << centerAlign("Повернення до меню вибору способа додавання текста.\n\n");
+			system("pause");
+			system("cls");
 			return "";
 		case 1:
 			return *(clipboard->end() - 1);
@@ -1025,6 +1076,8 @@ private:
 			choice = enterNumberInRange("Введіть номер даних: ", 1, clipboard->end() - clipboard->begin());
 			if(choice != -1)
 				return *(clipboard->begin() + choice - 1);
+			return "";
+		default:
 			return "";
 		}
 	}
@@ -1040,7 +1093,9 @@ private:
 			switch (choice)
 			{
 			case 0:
-				cout << "\nПовернення до Меню дій над змістом.\n\n";
+				cout << "\n" << centerAlign("Повернення до Меню дій над змістом.\n\n");
+				system("pause");
+				system("cls");
 				return false;
 			case 1:
 				text = getTextUsingKeyboard();
@@ -1053,12 +1108,12 @@ private:
 	}
 
 	void wayToPasteTextMenu(int& choice) {
-		cout << "\nЯк ви хочете вставити текст:\n";
-		cout << "0. Вийти в Меню дій над змістом\n";
-		cout << "1. В кінець\n";
-		cout << "2. На початок\n";
-		cout << "3. За індексом\n";
-		cout << "4. Замінивши певну частину в файлі\n";
+		cout << "\n" << centerAlign("Як ви хочете вставити текст:\n");
+		cout << centerAlign("0. Вийти в Меню дій над змістом\n");
+		cout << centerAlign("1. В кінець\n");
+		cout << centerAlign("2. На початок\n");
+		cout << centerAlign("3. За індексом\n");
+		cout << centerAlign("4. Замінивши певну частину в файлі\n");
 		choice = enterNumberInRange("Ваш вибір: ", 0, 4);
 	}
 
@@ -1079,7 +1134,7 @@ private:
 		if (Editor::getCurrentText()->size() > 0)
 			endOfRange = Editor::getCurrentText()->size() - 1;
 
-		int index = enterNumberInRange("Введіть індекс, за яким будете вставляти текст", startOfRange, endOfRange);
+		int index = enterNumberInRange("Введіть індекс, за яким будете вставляти текст: ", startOfRange, endOfRange);
 
 		if (index == -1)
 			return index;
@@ -1094,11 +1149,11 @@ private:
 		if (Editor::getCurrentText()->size() > 0)
 			endOfRange = Editor::getCurrentText()->size() - 1;
 
-		int startIndex = enterNumberInRange("Введіть індекс, за яким будете вставляти текст", startOfRange, endOfRange);
-		int endIndex = enterNumberInRange("Введіть індекс, за яким будете вставляти текст", startOfRange, endOfRange);
+		int startIndex = enterNumberInRange("Початковий індекс: ", startOfRange, endOfRange, false, "був введений індекс, який виходить за межі тексту!");
+		if (startIndex == -1) return -1;
 
-		if (startIndex == -1 || endIndex == -1)
-			return -1;
+		int endIndex = enterNumberInRange("Кінцевий індекс: ", startOfRange, endOfRange, true, "був введений індекс, який виходить за межі тексту!");
+		if (endIndex == -1) return -1;
 
 		commandsManager->invokeCommand(TypesOfCommands::Paste, startIndex, endIndex, textToPaste);
 
@@ -1117,7 +1172,9 @@ private:
 
 		switch (choice) {
 		case 0:
-			cout << "\nПовернення до Меню дій над змістом.\n\n";
+			cout << "\n" << centerAlign("Повернення до Меню дій над змістом.\n\n");
+			system("pause");
+			system("cls");
 			return false;
 		case 1:
 		case 2:
@@ -1133,14 +1190,16 @@ private:
 			if (choice != -1)
 				return true;
 			return false;
+		default:
+			return false;
 		}
 	}
 
 	void delCopyOrCutTextMenu(int& choice, string action) {
-		cout << "\nСкільки хочете " + action + ":\n";
-		cout << "0. Назад\n";
-		cout << "1. Весь зміст\n";
-		cout << "2. З певного по певний індекс\n";
+		cout << "\n" << centerAlign("Скільки хочете " + action + ":\n");
+		cout << centerAlign("0. Назад\n");
+		cout << centerAlign("1. Весь зміст\n");
+		cout << centerAlign("2. З певного по певний індекс\n");
 		choice = enterNumberInRange("Ваш вибір: ", 0, 2);
 	}
 
@@ -1153,16 +1212,15 @@ private:
 	bool delCopyOrCutFromIndexToIndex(TypesOfCommands typeOfCommand, string actionInPast) {
 		int startIndex, endIndex;
 
-		startIndex = enterNumberInRange("Початковий індекс: ", 0, Editor::getCurrentText()->size() - 1, "був введений індекс, який виходить за межі тексту!");
-		endIndex = enterNumberInRange("Кінцевий індекс: ", 0, Editor::getCurrentText()->size() - 1, "був введений індекс, який виходить за межі тексту!");
+		startIndex = enterNumberInRange("Початковий індекс: ", 0, Editor::getCurrentText()->size() - 1, true, "був введений індекс, який виходить за межі тексту!");
+		if (startIndex == -1) return false;
 
-		if(startIndex != -1 && endIndex != -1)
-		{
-			commandsManager->invokeCommand(typeOfCommand, startIndex, endIndex);
-			Notification::successNotification("дані були успішно " + actionInPast + "!");
-			return true;
-		}
-		return false;
+		endIndex = enterNumberInRange("Кінцевий індекс: ", 0, Editor::getCurrentText()->size() - 1, true, "був введений індекс, який виходить за межі тексту!");
+		if (endIndex == -1) return false;
+
+		commandsManager->invokeCommand(typeOfCommand, startIndex, endIndex);
+		Notification::successNotification("дані були успішно " + actionInPast + "!");
+		return true;
 	}
 
 	bool delCopyOrCutText(TypesOfCommands typeOfCommand, string actionForMenu, string actionInPast) {
@@ -1174,7 +1232,9 @@ private:
 		switch (choice)
 		{
 		case 0:
-			cout << "\nПовернення до Меню дій над змістом.\n\n";
+			cout << "\n" << centerAlign("Повернення до Меню дій над змістом.\n\n");
+			system("pause");
+			system("cls");
 			return false;
 		case 1:
 			return delCopyOrCutWholeText(typeOfCommand, actionInPast);
@@ -1190,34 +1250,40 @@ private:
 			return false;
 		}
 		else
+		{
+			system("cls");
 			if (action == "видалити")
 				return delCopyOrCutText(TypesOfCommands::Delete, action, "видалені");
 			else if (action == "скопіювати")
 				return delCopyOrCutText(TypesOfCommands::Copy, action, "скопійовані");
 			else
 				return delCopyOrCutText(TypesOfCommands::Cut, action, "вирізані");
+		}
 	}
 
 	void makeActionsOnContentMenu(int& choice) {
-		cout << "\nМеню дій над змістом:\n";
-		cout << "0. Назад\n";
-		cout << "1. Додати текст\n";
-		cout << "2. Видалити текст\n";
-		cout << "3. Копіювати текст\n";
-		cout << "4. Вирізати текст\n";
-		cout << "5. Скасувати команду\n";
-		cout << "6. Повторити команду\n";
+		cout << "\n" << centerAlign("Меню дій над змістом:\n");
+		cout << centerAlign("0. Назад\n");
+		cout << centerAlign("1. Додати текст\n");
+		cout << centerAlign("2. Видалити текст\n");
+		cout << centerAlign("3. Копіювати текст\n");
+		cout << centerAlign("4. Вирізати текст\n");
+		cout << centerAlign("5. Скасувати команду\n");
+		cout << centerAlign("6. Повторити команду\n");
 		choice = enterNumberInRange("Ваш вибір: ", 0, 6);
 	}
 
 	void readDataFromFile() {
-		string textFromFile = FilesManager::readFullDataFromFile(FilesManager::getSessionsDirectory() + editor->currentSession->getName());
-		commandsManager->invokeCommand(TypesOfCommands::Paste, 0, 0, textFromFile);
+		string* textFromFile = new string(FilesManager::readFullDataFromFile(FilesManager::getSessionsDirectory() + Editor::getCurrentSession()->getName()));
+		Editor::setCurrentText(textFromFile);
 	}
 
 	bool undoAction() {
-		if (Editor::getCurrentSession()->sizeOfCommandsHistory() > 1)
+		if (Editor::getCurrentSession()->sizeOfCommandsHistory() > 1 && Editor::getCurrentSession()->getCurrentCommandIndexInHistory() != -1)
+		{
 			commandsManager->invokeCommand(TypesOfCommands::Undo);
+			Notification::successNotification("команда була успішно скасована!");
+		}
 		else
 			Notification::errorNotification("немає дій, які можна було б скасувати!");
 		return Editor::getCurrentSession()->sizeOfCommandsHistory() > 1;
@@ -1226,7 +1292,11 @@ private:
 	bool redoAction() {
 		bool isThereAnyCommandForward = commandsManager->isThereAnyCommandForward();
 		if (isThereAnyCommandForward)
+		{
 			commandsManager->invokeCommand(TypesOfCommands::Redo);
+			Notification::successNotification("команда була успішно повторена!");
+
+		}
 		else
 			Notification::errorNotification("немає дій, які можна було б повторити!");
 		return isThereAnyCommandForward;
@@ -1248,24 +1318,27 @@ private:
 			switch (choice)
 			{
 			case 0:
-				cout << "\nПовернення до Меню для отримання сеансу.\n\n";
+				cout << "\n" << centerAlign("Повернення до Меню для отримання сеансу.\n\n");
+				system("pause");
+				system("cls");
 				delete (commandsManager);
 				return;
 			case 1:
+				system("cls");
 				wasTextSuccessfullyChanged = executeAddingTextToFile();
-				continue;
+				break;
 			case 2:
 				wasTextSuccessfullyChanged = chooseRootDelCopyOrCut("видалити");
-				continue;
+				break;
 			case 3:
 				wasTextSuccessfullyChanged = chooseRootDelCopyOrCut("скопіювати");
-				continue;
+				break;
 			case 4:
 				wasTextSuccessfullyChanged = chooseRootDelCopyOrCut("вирізати");
-				continue;
+				break;
 			case 5:
-				wasTextSuccessfullyChanged = undoAction();
-				continue;
+				wasTextSuccessfullyChanged = undoAction(); //комманду копирования не отменяем и не повторяем! Только то, что влияет на сам текст!
+				break;
 			case 6:
 				wasTextSuccessfullyChanged = redoAction();
 			}
@@ -1275,17 +1348,16 @@ private:
 	}
 
 	void templateForMenusAboutSessions(int& choice, string action) {
-		cout << "\nМеню для " << action.substr(0, 6) + "ння" << " сеансу:\n";
-		cout << "Який сеанс хочете " << action << ":\n";
-		cout << "0. Назад\n";
-		cout << "1. Останній\n";
-		cout << "2. Найперший\n";
-		cout << "3. За позицією\n";
+		cout << "\n" << centerAlign("Який сеанс хочете " + action + ":\n");
+		cout << centerAlign("0. Назад\n");
+		cout << centerAlign("1. Останній\n");
+		cout << centerAlign("2. Найперший\n");
+		cout << centerAlign("3. За позицією\n");
 		choice = enterNumberInRange("Ваш вибір: ", 0, 3);
 	}
 
-	void templateForExecutingMenusAboutSessions(function<void(int)> mainFunc, function<void(int&)> menu, function<void()> additionalFunc = nullptr) {
-		int choice;
+	void templateForExecutingMenusAboutSessions(function<void(int&)> mainFunc, function<void(int&)> menu, function<void()> additionalFunc = nullptr) {
+		int choice, index = -1;
 		do
 		{
 			Editor::getSessionsHistory()->printSessionsHistory();
@@ -1293,17 +1365,23 @@ private:
 			switch (choice)
 			{
 			case 0:
-				cout << "\nПовернення до Головного меню.\n\n";
+				cout << "\n" << centerAlign("Повернення до Головного меню.\n\n");
+				system("pause");
+				system("cls");
 				return;
 			case 1:
 			case 2:
 			case 3:
 				if (doesAnySessionExist())
 				{
-					choice == 1 ? mainFunc(Editor::getSessionsHistory()->size()) :
-						choice == 2 ? mainFunc(1) : mainFunc(-1);
-					if(additionalFunc)
+					index = choice == 1 ? Editor::getSessionsHistory()->size() : choice == 2 ? 1 : -1;
+					mainFunc(index);
+
+					if(index != -1 && additionalFunc)
+					{
+						system("cls");
 						additionalFunc();
+					}
 				}
 			}
 		} while (true);
@@ -1313,10 +1391,7 @@ private:
 		if (index == -1) {
 			index = enterNumberInRange("Введіть номер сеансу: ", 1, Editor::getSessionsHistory()->size());
 			if (index == -1)
-			{
-				Notification::errorNotification("були введені зайві символи або число, яке виходить за межі набору цифр наданих варіантів!");
 				return false;
-			}
 		}
 		return true;
 	}
@@ -1325,13 +1400,13 @@ private:
 		templateForMenusAboutSessions(choice, "отримати");
 	}
 
-	void setCurrentSessionByIndex(int index = -1) {
+	void setCurrentSessionByIndex(int& index) {
 		if(tryToEnterIndexForSession(index))
 			Editor::setCurrentSession(Editor::getSessionsHistory()->getSessionByIndex(index - 1));
 	}
 
 	void executeGettingSessionsMenu() {
-		function<void(int)> mainFunc = [this](int index) {
+		function<void(int&)> mainFunc = [this](int &index) {
 			setCurrentSessionByIndex(index);
 			};
 		function<void(int&)> menu = [this](int& choice) {
@@ -1370,32 +1445,53 @@ private:
 	}
 
 	void printManagingSessionsMenu(int& choice) {
-		cout << "\nГоловне меню:\n";
-		cout << "0. Закрити програму\n";
-		cout << "1. Довідка\n";
-		cout << "2. Створити сеанс\n";
-		cout << "3. Відкрити сеанс\n";
-		cout << "4. Видалити сеанс\n";
+		cout << centerAlign("Головне меню:\n");
+		cout << centerAlign("0. Закрити програму\n");
+		cout << centerAlign("1. Довідка\n");
+		cout << centerAlign("2. Створити сеанс\n");
+		cout << centerAlign("3. Відкрити сеанс\n");
+		cout << centerAlign("4. Видалити сеанс\n");
 		choice = enterNumberInRange("Ваш вибір: ", 0, 4);
 	}
 
 	void printReferenceInfo() {
-		cout << "\nДовідка до програми:\n\n";
-		cout << "Вашої уваги пропонується програму курсової роботи з об'єктно-орієнтованого програмування, побудована за допомогою патерну проектування \"Команда\".\n";
-		cout << "За допомогою програми можна створювати, редагувати та видаляти текстові файли, використовуючи при цьому команди Копіювання, Вставка, Вирізання та Відміна операції.\n\n";
-		cout << "Розробник: Бредун Денис Сергійович з групи ПЗ-21-1/9.\n\n";
+		system("cls");
+		cout << "\n" << centerAlign("Довідка до програми:\n\n");
+		cout << centerAlign("Вашої уваги пропонується програму курсової роботи з об'єктно-орієнтованого програмування, побудована за допомогою патерну проектування \"Команда\".\n");
+		cout << centerAlign("За допомогою програми можна створювати, редагувати та видаляти текстові файли, використовуючи при цьому команди Копіювання, Вставка, Вирізання та Відміна операції.\n\n");
+		cout << centerAlign("Розробник: Бредун Денис Сергійович з групи ПЗ-21-1/9.\n\n");
+		system("pause");
+		system("cls");
+	}
+
+	bool doesSessionWithThisNameExists(string name) {
+		for (int i = 0; i < editor->getSessionsHistory()->size(); i++)
+			if (editor->getSessionsHistory()->getSessionByIndex(i)->getName() == name + ".txt")
+				return true;
+
+		return false;
 	}
 
 	void createSession() {
-		Session* newSession = new Session();
 		string filename;
 
-		cout << "\nВведіть ім'я сеансу (заборонені символи: /\\\":?*|<>): ";
+		cout << "\n" << centerAlign("Введіть ім'я сеансу (заборонені символи: /\\\":?*|<>): ");
 		getline(cin, filename);
 
+		Session* newSession = new Session();
 		if (newSession->setName(filename))
 		{
-			ofstream file(FilesManager::getSessionsDirectory() + newSession->getName());
+			if (doesSessionWithThisNameExists(filename)) {
+				delete newSession;
+				Notification::errorNotification("сеанс з таким іменем вже існує!");
+				return;
+			}
+
+			if (!filesystem::exists(FilesManager::getSessionsDirectory()))
+				filesystem::create_directories(FilesManager::getSessionsDirectory());
+
+			string filepath = FilesManager::getSessionsDirectory() + newSession->getName();
+			ofstream file(filepath);
 			file.close();
 			Editor::getSessionsHistory()->addSessionToEnd(newSession);
 			Notification::successNotification("сеанс був успішно створений!");
@@ -1403,7 +1499,7 @@ private:
 		else
 		{
 			delete newSession;
-			Notification::errorNotification("створення сеансу було припинено!");
+			Notification::errorNotification("були введені заборонені символи!");
 		}
 	}
 
@@ -1413,12 +1509,34 @@ private:
 		return !Editor::getSessionsHistory()->isEmpty();
 	}
 
+	void setConsoleFont(int sizeOfFont) {
+		CONSOLE_FONT_INFOEX cfi;
+		cfi.cbSize = sizeof(cfi);
+		cfi.dwFontSize.Y = sizeOfFont;
+		std::wcscpy(cfi.FaceName, L"Consolas"); // Choose your font
+		SetCurrentConsoleFontEx(GetStdHandle(STD_OUTPUT_HANDLE), FALSE, &cfi);
+	}
+
+	void setConsoleFullScreenAndNonresized() {
+		HWND consoleWindow = GetConsoleWindow();
+		SetWindowLong(consoleWindow, GWL_STYLE, GetWindowLong(consoleWindow, GWL_STYLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX);
+
+		system("mode con COLS=700");
+		ShowWindow(consoleWindow, SW_MAXIMIZE);
+		SendMessage(consoleWindow, WM_SYSKEYDOWN, VK_RETURN, 0x20000000);
+	}
+
 public:
+
+	void setUp() {
+		setConsoleFullScreenAndNonresized();
+		setConsoleFont(22);
+	}
 
 	void executeMainMenu() {
 		int choice;
 		editor = new Editor();
-		editor->tryToLoadSessions(); //перевірю, коли буду переглядати клас FilesManager
+		editor->tryToLoadSessions(); 
 
 		do
 		{
@@ -1426,8 +1544,8 @@ public:
 			switch (choice)
 			{
 			case 0:
-				cout << "\nДо побачення!\n";
-				editor->tryToUnloadSessions(); //перевірю, коли буду переглядати клас FilesManager
+				cout << "\n" << centerAlign("До побачення!\n");
+				editor->tryToUnloadSessions();
 				delete editor;
 				exit(0);
 			case 1:
@@ -1439,8 +1557,11 @@ public:
 			case 3:
 			case 4:
 				if (doesAnySessionExist())
-					choice == 3 ? executeGettingSessionsMenu() : 
-								  executeDeletingSessionsMenu();
+				{
+					system("cls");
+					choice == 3 ? executeGettingSessionsMenu() :
+						executeDeletingSessionsMenu();
+				}
 			}
 
 		} while (true);
@@ -1453,6 +1574,7 @@ int main()
 	SetConsoleOutputCP(1251);
 
 	Program program;
+	program.setUp();
 	program.executeMainMenu();
 }
 
@@ -1507,7 +1629,12 @@ int main()
 
 
 
+
+//много system("cls");
+
 //упорядочить методы по группам
+
+//подумать о центрации текста
 
 //много где используется enterNumberInRange, хотя там надо просто верификация введённого числа
 
