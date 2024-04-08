@@ -574,15 +574,15 @@ private:
 
 			for (int j = 0; j < countOfCommands; j++)
 			{
-				getline(ifs_session, line);
-				if (line == "CutCommand")
+				getline(ifs_session, typeOfCommand);
+				if (typeOfCommand == "CutCommand")
 					command = new CutCommand(editor);
-				else if (line == "PasteCommand")
+				else if (typeOfCommand == "PasteCommand")
 					command = new PasteCommand(editor);
 				else
 					command = new DeleteCommand(editor);
 
-				if (session->sizeOfCommandsHistory() == 1)
+				if (session->sizeOfCommandsHistory() > 0)
 					command->previousCommand = session->getLastCommand();
 
 				getline(ifs_session, line);
@@ -593,7 +593,7 @@ private:
 				}
 				command->textToProcess = text;
 
-				if(line == "PasteCommand")
+				if(typeOfCommand == "PasteCommand")
 				{
 					text = "";
 					while (getline(ifs_session, line)) {
@@ -611,6 +611,7 @@ private:
 				command->endPosition = stoi(line);
 
 				session->addCommandAsLast(command);
+				text = "";
 			}
 
 			sessionsHistory->addSessionToEnd(session);
