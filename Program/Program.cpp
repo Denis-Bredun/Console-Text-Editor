@@ -150,6 +150,7 @@ protected:
 public:
 	virtual void execute() = 0;
 	virtual void undo() = 0;
+	virtual Command* copy() = 0;
 
 	void setParameters(TypesOfCommands typeOfCommand, Command* previousCommand, Command* commandToUndoOrRedo, int startPosition, int endPosition, std::string textToPaste) {
 		if (typeOfCommand == TypesOfCommands::Undo || typeOfCommand == TypesOfCommands::Redo)
@@ -209,8 +210,8 @@ public:
 
 class Session {
 private:
-	int currentCommandIndexInHistory;
 	std::stack<Command*, std::vector<Command*>> commandsHistory;
+	int currentCommandIndexInHistory;
 	Clipboard* clipboard;
 	std::string name;
 
@@ -382,6 +383,8 @@ public:
 	void execute() override;
 
 	void undo() override;
+
+	Command* copy() override;
 };
 
 class DeleteCommand : public Command {
@@ -392,7 +395,7 @@ public:
 
 	void undo() override;
 
-	Command* copy();
+	Command* copy() override;
 };
 
 class CutCommand : public Command {
@@ -403,7 +406,7 @@ public:
 
 	void undo() override;
 
-	Command* copy();
+	Command* copy() override;
 };
 
 class PasteCommand : public Command {
@@ -414,7 +417,7 @@ public:
 
 	void undo() override;
 
-	Command* copy();
+	Command* copy() override;
 };
 
 class UndoCommand : public Command {
@@ -427,6 +430,8 @@ public:
 	void execute() override;
 
 	void undo() override;
+
+	Command* copy() override;
 };
 
 class RedoCommand : public Command {
@@ -439,6 +444,8 @@ public:
 	void execute() override;
 
 	void undo() override;
+
+	Command* copy() override;
 };
 
 class FilesManager {
@@ -797,9 +804,7 @@ void CopyCommand::execute() {
 
 void CopyCommand::undo() { }
 
-Command* CopyCommand::copy() {
-	return new CopyCommand(*this);
-}
+Command* CopyCommand::copy() { return nullptr; }
 
 DeleteCommand::DeleteCommand(Editor* editor) {
 	this->editor = editor;
