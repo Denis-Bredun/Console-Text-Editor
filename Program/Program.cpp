@@ -134,41 +134,23 @@ public:
 			this->textToPaste = textToPaste;
 	}
 
-	std::string getTextToProcess() {
-		return textToProcess;
-	}
+	std::string getTextToProcess() { return textToProcess; }
 
-	std::string getTextToPaste() {
-		return textToPaste;
-	}
+	std::string getTextToPaste() { return textToPaste;	}
 
-	int getStartPosition() {
-		return startPosition;
-	}
+	int getStartPosition() { return startPosition; }
 
-	int getEndPosition() {
-		return endPosition;
-	}
+	int getEndPosition() { return endPosition; }
 
-	void setTextToProcess(std::string textToProcess) {
-		this->textToProcess = textToProcess;
-	}
+	void setTextToProcess(std::string textToProcess) { this->textToProcess = textToProcess; }
 
-	void setTextToPaste(std::string textToPaste) {
-		this->textToPaste = textToPaste;
-	}
+	void setTextToPaste(std::string textToPaste) { this->textToPaste = textToPaste; }
 
-	void setStartPosition(int startPosition) {
-		this->startPosition = startPosition;
-	}
+	void setStartPosition(int startPosition) { this->startPosition = startPosition; }
 
-	void setEndPosition(int endPosition) {
-		this->endPosition = endPosition;
-	}
+	void setEndPosition(int endPosition) { this->endPosition = endPosition; }
 
-	void setPreviousCommand(Command* previousCommand) {
-		this->previousCommand = previousCommand;
-	}
+	void setPreviousCommand(Command* previousCommand) { this->previousCommand = previousCommand; }
 };
 
 class Session {
@@ -184,11 +166,7 @@ public:
 		currentCommandIndexInHistory = -1;
 	}
 
-	Session(std::string filename) {
-		clipboard = new Clipboard();
-		currentCommandIndexInHistory = -1;
-		name = filename;
-	}
+	Session(std::string filename) : Session() { name = filename; }
 
 	~Session() {
 		while (!commandsHistory.empty()) {
@@ -199,9 +177,7 @@ public:
 		delete clipboard;
 	}
 
-	std::string getName() {
-		return name;
-	}
+	std::string getName() { return name; }
 
 	bool setName(std::string filename) {
 		std::string forbiddenCharacters = "/\\\":?*|<>";
@@ -211,57 +187,25 @@ public:
 				return false;
 
 		name = filename + ".txt";
-
 		return true;
 	}
 
-	void addCommandAsLast(Command* command) {
-		commandsHistory.push(command);
-	}
+	void addCommandAsLast(Command* command) { commandsHistory.push(command); }
 
 	void deleteLastCommand() {
 		delete commandsHistory.top();
 		commandsHistory.pop();
 	}
 
-	void deleteCommandByIndex(int index) {
-		auto ptrOnUnderlyingContainer = &commandsHistory._Get_container();
-		auto ptrOnRetiringCommand = (*ptrOnUnderlyingContainer)[index];
+	Command* getCommandByIndex(int index) { return commandsHistory._Get_container()[index]; }
 
-		std::vector<Command*> notRetiringElements;
-		remove_copy(ptrOnUnderlyingContainer->begin(), ptrOnUnderlyingContainer->end(),
-			back_inserter(notRetiringElements), ptrOnRetiringCommand);
+	int sizeOfCommandsHistory() { return commandsHistory.size(); }
 
-		commandsHistory = std::stack<Command*, std::vector<Command*>>(notRetiringElements);
+	Clipboard* getClipboard() { return clipboard; }
 
-		delete ptrOnRetiringCommand;
-	}
+	int getCurIndexInCommHistory() { return currentCommandIndexInHistory; }
 
-	Command* getLastCommand() {
-		return commandsHistory.top();
-	}
-
-	Command* getCommandByIndex(int index) {
-		return commandsHistory._Get_container()[index];
-	}
-
-	bool isCommandsHistoryEmpty() {
-		return commandsHistory.size() == 0;
-	}
-
-	int sizeOfCommandsHistory() {
-		return commandsHistory.size();
-	}
-
-	Clipboard* getClipboard() {
-		return clipboard;
-	}
-
-	int getCurrentCommandIndexInHistory() {
-		return currentCommandIndexInHistory;
-	}
-
-	void setCurrentCommandIndexInHistory(int currentCommandIndexInHistory) {
+	void setCurIndexInCommHistory(int currentCommandIndexInHistory) {
 		this->currentCommandIndexInHistory = currentCommandIndexInHistory;
 	}
 };
@@ -278,34 +222,9 @@ public:
 		}
 	}
 
-	void addSessionToEnd(Session* session) {
-		sessions.push(session);
-	}
+	void addSessionToEnd(Session* session) { sessions.push(session); }
 
-	Session* getLastSession() {
-		return sessions.top();
-	}
-
-	Session* getFirstSession() {
-		return sessions._Get_container().front();
-	}
-
-	Session* getSessionByIndex(int index) {
-		return sessions._Get_container()[index];
-	}
-
-	std::string deleteLastSession() {
-		std::string filename = sessions.top()->getName();
-
-		delete sessions.top();
-		sessions.pop();
-
-		return filename;
-	}
-
-	std::string deleteFirstSession() {
-		return deleteSessionByIndex(0);
-	}
+	Session* getSessionByIndex(int index) { return sessions._Get_container()[index]; }
 
 	std::string deleteSessionByIndex(int index) {
 		auto ptrOnUnderlyingContainer = &sessions._Get_container();
@@ -314,8 +233,11 @@ public:
 		std::string filename = ptrOnRetiringSession->getName();
 
 		std::vector<Session*> notRetiringElements;
-		remove_copy(ptrOnUnderlyingContainer->begin(), ptrOnUnderlyingContainer->end(),
-			back_inserter(notRetiringElements), ptrOnRetiringSession);
+
+		remove_copy(ptrOnUnderlyingContainer->begin(), 
+					ptrOnUnderlyingContainer->end(),
+					back_inserter(notRetiringElements), 
+					ptrOnRetiringSession);
 
 		sessions = std::stack<Session*, std::vector<Session*>>(notRetiringElements);
 
@@ -324,13 +246,9 @@ public:
 		return filename;
 	}
 
-	bool isEmpty() {
-		return sessions.size() == 0;
-	}
+	bool isEmpty() { return sessions.size() == 0; }
 
-	int size() {
-		return sessions.size();
-	}
+	int size() { return sessions.size(); }
 
 	void printSessionsHistory() {
 		for (int i = 0; i < sessions.size(); i++)
@@ -424,8 +342,10 @@ private:
 
 	static std::stack<std::string> getFilepathsForMetadata(std::string directory) {
 		std::stack<std::string> filesFromMetadataDirectory;
-		for (const auto& entry : std::filesystem::directory_iterator(directory))
-			if (entry.path().extension() == ".txt")
+
+		auto iteratorOnFiles = std::filesystem::directory_iterator(directory);
+
+		for (const auto& entry : iteratorOnFiles)
 				filesFromMetadataDirectory.push(entry.path().string());
 
 		return filesFromMetadataDirectory;
@@ -436,6 +356,7 @@ private:
 			return;
 
 		std::stack<std::string> filesFromMetadataDirectory = getFilepathsForMetadata(directory);
+		std::string sessionFilepath;
 
 		if (sessionsHistory->isEmpty()) {
 			while (!filesFromMetadataDirectory.empty()) {
@@ -444,198 +365,210 @@ private:
 			}
 		}
 		else {
-			bool isPartOfRealtimeSessions = false;
+			bool isPartOfRealtimeSessions;
+
 			for (int i = 0; i < filesFromMetadataDirectory.size(); i++)
 			{
+				isPartOfRealtimeSessions = false;
 				for (int j = 0; j < sessionsHistory->size(); j++)
 				{
-					if (filesFromMetadataDirectory._Get_container()[i] == sessionsHistory->getSessionByIndex(j)->getName())
+					sessionFilepath = directory + sessionsHistory->getSessionByIndex(j)->getName();
+					if (filesFromMetadataDirectory._Get_container()[i] == sessionFilepath)
 						isPartOfRealtimeSessions = true;
 				}
+
 				if (!isPartOfRealtimeSessions)
 					remove(filesFromMetadataDirectory._Get_container()[i].c_str());
-				isPartOfRealtimeSessions = false;
 			}
 		}
+	}
+
+	static std::string readDataByDelimiter(std::ifstream* ifs_session, std::string delimiter) {
+		std::string line, text;
+		int counterOfLines = 0;
+
+		getline(*ifs_session, line);
+		while (getline(*ifs_session, line)) {
+			if (line == delimiter)
+				break;
+			counterOfLines++;
+			if (counterOfLines > 1)
+				line = "\n" + line;
+			text += line;
+		}
+
+		return text;
 	}
 
 	static void writeSessionsMetadata(SessionsHistory* sessionsHistory) {
 		deleteMetadataForDeletedSessions(sessionsHistory, SESSIONS_METADATA_DIRECTORY);
 
-		std::string filename, typeOfCommand, delimiter = "---\n";
-		Session* session;
-		Command* command;
-
 		if (!std::filesystem::exists(SESSIONS_METADATA_DIRECTORY))
 			std::filesystem::create_directories(SESSIONS_METADATA_DIRECTORY);
 
-		std::ofstream ofs_aval_session(AVAILABLE_SESSIONS_FULLPATH);
-
 		for (int i = 0; i < sessionsHistory->size(); i++)
+			writeSessionMetadata(sessionsHistory, i);
+	}
+
+	static void writeSessionMetadata(SessionsHistory* sessionsHistory, int index) {
+		Session* session;
+
+		session = sessionsHistory->getSessionByIndex(index);
+
+		std::ofstream ofs_aval_session(AVAILABLE_SESSIONS_FULLPATH, std::ios_base::app);
+		ofs_aval_session << session->getName() << std::endl;
+		ofs_aval_session.close();
+
+		std::ofstream ofs_session(SESSIONS_METADATA_DIRECTORY + session->getName());
+
+		ofs_session << session->getName() << std::endl;
+		ofs_session << session->sizeOfCommandsHistory() << std::endl;
+		ofs_session << session->getCurIndexInCommHistory() << std::endl;
+
+		for (int j = 0; j < session->sizeOfCommandsHistory(); j++)
+			writeCommandMetadata(&ofs_session, session, j);
+
+		ofs_session.close();
+	}
+
+	static void writeCommandMetadata(std::ofstream* ofs_session, Session* session, int index) {
+		std::string typeOfCommand, nameOfCommandClass, delimiter = "---";
+		Command* command;
+
+		command = session->getCommandByIndex(index);
+
+		nameOfCommandClass = std::string(typeid(*command).name());
+
+		if (nameOfCommandClass == "class PasteCommand")
+			typeOfCommand = "PasteCommand\n";
+		else if (nameOfCommandClass == "class CutCommand")
+			typeOfCommand = "CutCommand\n";
+		else
+			typeOfCommand = "DeleteCommand\n";
+
+		*ofs_session << typeOfCommand;
+
+		*ofs_session << delimiter << std::endl;
+
+		if (command->getTextToProcess() != "")
+			*ofs_session << command->getTextToProcess() << std::endl;
+		else
+			*ofs_session << command->getTextToProcess();
+
+		*ofs_session << delimiter << std::endl;
+
+		if (typeOfCommand == "PasteCommand\n")
+
 		{
-			session = sessionsHistory->getSessionByIndex(i);
+			if (command->getTextToProcess() != "")
+				*ofs_session << command->getTextToProcess() << std::endl;
+			else
+				*ofs_session << command->getTextToProcess();
 
-			filename = session->getName();
-			ofs_aval_session << filename << std::endl;
-
-			std::ofstream ofs_session(SESSIONS_METADATA_DIRECTORY + filename);
-
-			ofs_session << session->getName() << std::endl;
-			ofs_session << session->sizeOfCommandsHistory() << std::endl;
-			ofs_session << session->getCurrentCommandIndexInHistory() << std::endl;
-
-			for (int j = 0; j < session->sizeOfCommandsHistory(); j++)
-			{
-				command = session->getCommandByIndex(j);
-
-				if (std::string(typeid(*command).name()) == "class PasteCommand")
-					typeOfCommand = "PasteCommand\n";
-				else if (std::string(typeid(*command).name()) == "class CutCommand")
-					typeOfCommand = "CutCommand\n";
-				else
-					typeOfCommand = "DeleteCommand\n";
-
-				ofs_session << typeOfCommand;
-
-				ofs_session << delimiter;				
-
-				if (command->getTextToProcess() != "")
-					ofs_session << command->getTextToProcess() << std::endl;
-				else
-					ofs_session << command->getTextToProcess();
-
-				ofs_session << delimiter;
-
-				if(typeOfCommand == "PasteCommand\n")
-
-				{
-					if (command->getTextToProcess() != "")
-						ofs_session << command->getTextToProcess() << std::endl;
-					else
-						ofs_session << command->getTextToProcess();
-
-					ofs_session << delimiter;
-				}
-
-				ofs_session << command->getStartPosition() << std::endl;
-
-				ofs_session << command->getEndPosition() << std::endl;
-			}
-
-			ofs_session.close();
+			*ofs_session << delimiter << std::endl;
 		}
 
-		ofs_aval_session.close();
+		*ofs_session << command->getStartPosition() << std::endl;
+
+		*ofs_session << command->getEndPosition() << std::endl;
 	}
 
 	static void readSessionsMetadata(SessionsHistory* sessionsHistory, Editor* editor) {
+		std::stack<std::string> available_sessions;
+		std::string line;
 
 		std::ifstream ifs_available_sessions(AVAILABLE_SESSIONS_FULLPATH);
-
 		if (!ifs_available_sessions) return;
-
-		std::string line, typeOfCommand, text, delimiter = "---";
-		int countOfCommands;
-		Session* session;
-		Command* command, * previousCommand;
-		int counterOfLines = 0;
-
-		std::stack<std::string> available_sessions;
-
+		
 		while (getline(ifs_available_sessions, line))
 			available_sessions.push(line);
 
 		ifs_available_sessions.close();
 
 		for (int i = 0; i < available_sessions.size(); i++)
+			readSessionMetadata(sessionsHistory, editor, available_sessions._Get_container()[i]);
+	}
+
+	static void readSessionMetadata(SessionsHistory* sessionsHistory, Editor* editor, std::string sessionFilename) {
+		std::string line;
+		Session* session;
+		int countOfCommands;
+
+		std::ifstream ifs_session(SESSIONS_METADATA_DIRECTORY + sessionFilename);
+
+		getline(ifs_session, line);
+		session = new Session(line);
+
+		getline(ifs_session, line);
+		countOfCommands = stoi(line);
+
+		getline(ifs_session, line);
+		session->setCurIndexInCommHistory(stoi(line));
+
+		for (int j = 0; j < countOfCommands; j++)
+			readCommandMetadata(editor, &ifs_session, session);
+
+		sessionsHistory->addSessionToEnd(session);
+
+		ifs_session.close();
+	}
+
+	static void readCommandMetadata(Editor* editor, std::ifstream* ifs_session, Session* session) {
+		std::string typeOfCommand, text;
+		Command* command,* previousCommand;
+
+		getline(*ifs_session, typeOfCommand);
+		if (typeOfCommand == "CutCommand")
+			command = new CutCommand(editor);
+		else if (typeOfCommand == "PasteCommand")
+			command = new PasteCommand(editor);
+		else
+			command = new DeleteCommand(editor);
+
+		if (session->sizeOfCommandsHistory() > 0)
 		{
-			std::ifstream ifs_session(SESSIONS_METADATA_DIRECTORY + available_sessions._Get_container()[i]);
-
-			getline(ifs_session, line);
-			session = new Session(line);
-
-			getline(ifs_session, line);
-			countOfCommands = stoi(line);
-
-			getline(ifs_session, line);
-			session->setCurrentCommandIndexInHistory(stoi(line));
-
-			for (int j = 0; j < countOfCommands; j++)
-			{
-				getline(ifs_session, typeOfCommand);
-				if (typeOfCommand == "CutCommand")
-					command = new CutCommand(editor);
-				else if (typeOfCommand == "PasteCommand")
-					command = new PasteCommand(editor);
-				else
-					command = new DeleteCommand(editor);
-
-				if (session->sizeOfCommandsHistory() > 0)
-					command->setPreviousCommand(session->getLastCommand());
-
-				getline(ifs_session, line);
-				while (getline(ifs_session, line)) {
-					if (line == delimiter)
-						break;
-					counterOfLines++;
-					if (counterOfLines > 1)
-						line = "\n" + line;
-					text += line;
-				}
-				command->setTextToProcess(text);
-				counterOfLines = 0;
-
-				if(typeOfCommand == "PasteCommand")
-				{
-					text = "";
-					while (getline(ifs_session, line)) {
-						if (line == delimiter)
-							break;
-						counterOfLines++;
-						if (counterOfLines > 1)
-							line = "\n" + line;
-						text += line;
-					}
-					command->setTextToPaste(text);
-				}
-
-				getline(ifs_session, line);
-				command->setStartPosition(stoi(line));
-
-				getline(ifs_session, line);
-				command->setEndPosition(stoi(line));
-
-				session->addCommandAsLast(command);
-				text = "";
-				counterOfLines = 0;
-			}
-
-			sessionsHistory->addSessionToEnd(session);
-
-			ifs_session.close();
+			previousCommand = session->getCommandByIndex(session->sizeOfCommandsHistory() - 1);
+			command->setPreviousCommand(previousCommand);
 		}
+
+		text = readDataByDelimiter(ifs_session, "---");
+		command->setTextToProcess(text);
+
+		if (typeOfCommand == "PasteCommand")
+		{
+			text = readDataByDelimiter(ifs_session, "---");
+			command->setTextToPaste(text);
+		}
+
+		getline(*ifs_session, text);
+		command->setStartPosition(stoi(text));
+
+		getline(*ifs_session, text);
+		command->setEndPosition(stoi(text));
+
+		session->addCommandAsLast(command);
 	}
 
 	static void writeClipboardMetadata(SessionsHistory* sessionsHistory) {
-		deleteMetadataForDeletedSessions(sessionsHistory, CLIPBOARD_METADATA_DIRECTORY); // отдельно сделать удаление данных для clipboard, или просто взглянуть на параметры...
+		deleteMetadataForDeletedSessions(sessionsHistory, CLIPBOARD_METADATA_DIRECTORY);
 
-		std::string delimiter = "---\n";
+		std::string delimiter = "---", clipboardMetadataFilepath;
 		Clipboard* clipboard;
 
 		if (!std::filesystem::exists(CLIPBOARD_METADATA_DIRECTORY))
 			std::filesystem::create_directories(CLIPBOARD_METADATA_DIRECTORY);
 
-
 		for (int i = 0; i < sessionsHistory->size(); i++)
 		{
-			std::ofstream ofs(CLIPBOARD_METADATA_DIRECTORY  + sessionsHistory->getSessionByIndex(i)->getName());
+			clipboardMetadataFilepath = CLIPBOARD_METADATA_DIRECTORY + sessionsHistory->getSessionByIndex(i)->getName();
+			std::ofstream ofs(clipboardMetadataFilepath);
 
 			clipboard = sessionsHistory->getSessionByIndex(i)->getClipboard();
 
 			for (int j = 0; j < clipboard->size(); j++)
 			{
 				ofs << clipboard->getDataByIndex(j) << std::endl;
-				ofs << delimiter;
+				ofs << delimiter << std::endl;
 			}
 
 			ofs.close();
@@ -644,10 +577,11 @@ private:
 
 	static void readClipboardMetadata(SessionsHistory* sessionsHistory) {
 		Clipboard* clipboard;
-		std::string data, text;
+		std::string data, text, clipboardMetadataFilepath;
 		for (int i = 0; i < sessionsHistory->size(); i++)
 		{
-			std::ifstream ifs(CLIPBOARD_METADATA_DIRECTORY  + sessionsHistory->getSessionByIndex(i)->getName());
+			clipboardMetadataFilepath = CLIPBOARD_METADATA_DIRECTORY + sessionsHistory->getSessionByIndex(i)->getName();
+			std::ifstream ifs(clipboardMetadataFilepath);
 
 			clipboard = sessionsHistory->getSessionByIndex(i)->getClipboard();
 			while (getline(ifs, data))
@@ -667,9 +601,8 @@ private:
 	}
 
 public:
-	static std::string getSessionsDirectory() {
-		return SESSIONS_DIRECTORY;
-	}
+
+	static std::string getSessionsDirectory() { return SESSIONS_DIRECTORY; }
 
 	static std::string readFullDataFromFile(std::string fullFilepath) {
 		std::string text, line;
@@ -724,12 +657,11 @@ void Editor::tryToUnloadSessions() {
 	FilesManager::writeSessionsMetadata(sessionsHistory);
 }
 
-Editor::Editor() {
-	this->sessionsHistory = new SessionsHistory();
-}
+Editor::Editor() { this->sessionsHistory = new SessionsHistory(); }
 
 void Editor::copy(std::string textToProcess, int startPosition, int endPosition) {
-	this->currentSession->getClipboard()->addData(textToProcess.substr(startPosition, endPosition - startPosition + 1));
+	std::string dataToCopy = textToProcess.substr(startPosition, endPosition - startPosition + 1);
+	currentSession->getClipboard()->addData(dataToCopy);
 }
 
 void Editor::paste(std::string* textToProcess, int startPosition, int endPosition, std::string textToPaste) {
@@ -758,20 +690,15 @@ void Editor::remove(std::string* textToProcess, int startPosition, int endPositi
 	*currentText = *textToProcess;
 }
 
-Session* Editor::getCurrentSession() {
-	return currentSession;
-}
+Session* Editor::getCurrentSession() { return currentSession; }
 
-std::string* Editor::getCurrentText() {
-	return currentText;
-}
+std::string* Editor::getCurrentText() { return currentText; }
 
 void Editor::printCurrentText() {
 	system("cls");
 	std::cout << "\nЗміст файлу " << currentSession->getName() << ":\n";
-	if (*currentText != "")
-		std::cout << "\"" << *currentText << "\"\n";
-	else
+	*currentText != "" ? 
+		std::cout << "\"" << *currentText << "\"\n" : 
 		std::cout << "\nФайл пустий!\n";
 }
 
@@ -779,57 +706,33 @@ SessionsHistory* Editor::sessionsHistory;
 Session* Editor::currentSession;
 std::string* Editor::currentText;
 
-CopyCommand::CopyCommand(Editor* editor) {
-	this->editor = editor;
-}
+CopyCommand::CopyCommand(Editor* editor) { this->editor = editor; }
 
-void CopyCommand::execute() {
-	editor->copy(textToProcess, startPosition, endPosition);
-}
+void CopyCommand::execute() { editor->copy(textToProcess, startPosition, endPosition); }
 
 void CopyCommand::undo() { }
 
 Command* CopyCommand::copy() { return nullptr; }
 
-DeleteCommand::DeleteCommand(Editor* editor) {
-	this->editor = editor;
-}
+DeleteCommand::DeleteCommand(Editor* editor) { this->editor = editor; }
 
-void DeleteCommand::execute() {
-	editor->remove(&textToProcess, startPosition, endPosition);
-}
+void DeleteCommand::execute() { editor->remove(&textToProcess, startPosition, endPosition); }
 
-void DeleteCommand::undo() {
-	*(Editor::getCurrentText()) = previousCommand->getTextToProcess();
-}
+void DeleteCommand::undo() { *(Editor::getCurrentText()) = previousCommand->getTextToProcess(); }
 
-Command* DeleteCommand::copy() {
-	return new DeleteCommand(*this);
-}
+Command* DeleteCommand::copy() { return new DeleteCommand(*this); }
 
-CutCommand::CutCommand(Editor* editor) {
-	this->editor = editor;
-}
+CutCommand::CutCommand(Editor* editor) { this->editor = editor; }
 
-void CutCommand::execute() {
-	editor->cut(&textToProcess, startPosition, endPosition);
-}
+void CutCommand::execute() { editor->cut(&textToProcess, startPosition, endPosition); }
 
-void CutCommand::undo() {
-	*(Editor::getCurrentText()) = previousCommand->getTextToProcess();
-}
+void CutCommand::undo() { *(Editor::getCurrentText()) = previousCommand->getTextToProcess(); }
 
-Command* CutCommand::copy() {
-	return new CutCommand(*this);
-}
+Command* CutCommand::copy() { return new CutCommand(*this); }
 
-PasteCommand::PasteCommand(Editor* editor) {
-	this->editor = editor;
-}
+PasteCommand::PasteCommand(Editor* editor) { this->editor = editor; }
 
-void PasteCommand::execute() {
-	editor->paste(&textToProcess, startPosition, endPosition, textToPaste);
-}
+void PasteCommand::execute() { editor->paste(&textToProcess, startPosition, endPosition, textToPaste); }
 
 void PasteCommand::undo() {
 	if (previousCommand)
@@ -838,21 +741,15 @@ void PasteCommand::undo() {
 		*(Editor::getCurrentText()) = "";
 }
 
-Command* PasteCommand::copy() {
-	return new PasteCommand(*this);
-}
+Command* PasteCommand::copy() { return new PasteCommand(*this); }
 
-void UndoCommand::execute() {
-	commandToUndoOrRedo->undo();
-}
+void UndoCommand::execute() { commandToUndoOrRedo->undo(); }
 
 void UndoCommand::undo() { }
 
 Command* UndoCommand::copy() { return nullptr; }
 
-void RedoCommand::execute() {
-	*(Editor::getCurrentText()) = commandToUndoOrRedo->getTextToProcess();
-}
+void RedoCommand::execute() { *(Editor::getCurrentText()) = commandToUndoOrRedo->getTextToProcess(); }
 
 void RedoCommand::undo() { }
 
@@ -862,26 +759,31 @@ class CommandsManager {
 private:
 	std::map<TypesOfCommands, Command*> manager;
 
-	void setParametersForCommand(TypesOfCommands typeOfCommand, int startPosition = 0, int endPosition = 0, std::string textToPaste = "") {
+	bool isNotUndoOrRedoCommand(TypesOfCommands typeOfCommand) { return typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo; }
+
+	void setParametersForCommand(TypesOfCommands typeOfCommand, int startPosition, int endPosition, std::string textToPaste) {
 		Command* commandToUndoOrRedo = nullptr, * previousCommand = nullptr;
 
 		if (typeOfCommand == TypesOfCommands::Undo)
-			commandToUndoOrRedo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurrentCommandIndexInHistory());
+			commandToUndoOrRedo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurIndexInCommHistory());
 
 		if(typeOfCommand == TypesOfCommands::Redo)
-			commandToUndoOrRedo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurrentCommandIndexInHistory() + 1);
+			commandToUndoOrRedo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurIndexInCommHistory() + 1);
 
-		if (Editor::getCurrentSession()->getCurrentCommandIndexInHistory() != -1 && typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo)
-			previousCommand = Editor::getCurrentSession()->getLastCommand();
+		if (Editor::getCurrentSession()->getCurIndexInCommHistory() != -1 && isNotUndoOrRedoCommand(typeOfCommand))
+			previousCommand = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->sizeOfCommandsHistory() - 1);
 
 		manager[typeOfCommand]->setParameters(typeOfCommand, previousCommand, commandToUndoOrRedo, startPosition, endPosition, textToPaste);
 	}
 
-	void deleteUselessLeftCommandsIfNecessary(TypesOfCommands typeOfCommand) {
+	int getCountOfForwardCommands() {
+		return Editor::getCurrentSession()->sizeOfCommandsHistory() - 1 - Editor::getCurrentSession()->getCurIndexInCommHistory();
+	}
+
+	void deleteForwardCommandsIfNecessary(TypesOfCommands typeOfCommand) {
 		if (typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo)
 			if (isThereAnyCommandForward()) {
-				int countOfCommandsToDelete = Editor::getCurrentSession()->sizeOfCommandsHistory() - 1 - Editor::getCurrentSession()->getCurrentCommandIndexInHistory();
-				for (int i = 1; i <= countOfCommandsToDelete; i++)
+				for (int i = 1; i <= getCountOfForwardCommands(); i++)
 					Editor::getCurrentSession()->deleteLastCommand();
 			}
 	}
@@ -897,34 +799,30 @@ public:
 	}
 
 	~CommandsManager() {
-		for (auto& pair : manager) {
-			delete (pair.second);
-		}
+		for (auto& pair : manager) { delete (pair.second); }
 		manager.clear();
 	}
 
 	bool isThereAnyCommandForward() {
-		return !Editor::getCurrentSession()->isCommandsHistoryEmpty() &&
-			Editor::getCurrentSession()->getCurrentCommandIndexInHistory() < Editor::getCurrentSession()->sizeOfCommandsHistory() - 1;
+		return Editor::getCurrentSession()->sizeOfCommandsHistory() != 0 &&
+			Editor::getCurrentSession()->getCurIndexInCommHistory() < Editor::getCurrentSession()->sizeOfCommandsHistory() - 1;
 	}
 
 	void invokeCommand(TypesOfCommands typeOfCommand, int startPosition = 0, int endPosition = 0, std::string textToPaste = "") {
 
-		deleteUselessLeftCommandsIfNecessary(typeOfCommand);
+		deleteForwardCommandsIfNecessary(typeOfCommand);
 		setParametersForCommand(typeOfCommand, startPosition, endPosition, textToPaste);
 
 		manager[typeOfCommand]->execute();
 
-		if (typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo && typeOfCommand != TypesOfCommands::Copy)
+		if (isNotUndoOrRedoCommand(typeOfCommand) && typeOfCommand != TypesOfCommands::Copy)
 			Editor::getCurrentSession()->addCommandAsLast(manager[typeOfCommand]->copy());
 
-		if (typeOfCommand != TypesOfCommands::Undo)
-		{
-			if (typeOfCommand != TypesOfCommands::Copy)
-				Editor::getCurrentSession()->setCurrentCommandIndexInHistory(Editor::getCurrentSession()->getCurrentCommandIndexInHistory() + 1);
-		}
+		if(typeOfCommand == TypesOfCommands::Undo)
+			Editor::getCurrentSession()->setCurIndexInCommHistory(Editor::getCurrentSession()->getCurIndexInCommHistory() - 1);
 		else
-			Editor::getCurrentSession()->setCurrentCommandIndexInHistory(Editor::getCurrentSession()->getCurrentCommandIndexInHistory() - 1);
+			if (typeOfCommand != TypesOfCommands::Copy)
+				Editor::getCurrentSession()->setCurIndexInCommHistory(Editor::getCurrentSession()->getCurIndexInCommHistory() + 1);
 	}
 };
 
@@ -1094,10 +992,10 @@ private:
 		if (Editor::currentText->size() > 0)
 			endOfRange = Editor::currentText->size() - 1;
 
-		int startIndex = enterNumberInRange("Початковий індекс: ", startOfRange, endOfRange, false, "був введений індекс, який виходить за межі тексту!");
+		int startIndex = enterNumberInRange("Початковий індекс (нумерація символів - з 0): ", startOfRange, endOfRange, false, "був введений індекс, який виходить за межі тексту!");
 		if (startIndex == -1) return -1;
 
-		int endIndex = enterNumberInRange("Кінцевий індекс: ", startOfRange, endOfRange, true, "був введений індекс, який виходить за межі тексту!");
+		int endIndex = enterNumberInRange("Кінцевий індекс (нумерація символів - з 0): ", startOfRange, endOfRange, true, "був введений індекс, який виходить за межі тексту!");
 		if (endIndex == -1) return -1;
 
 		commandsManager->invokeCommand(TypesOfCommands::Paste, startIndex, endIndex, textToPaste);
@@ -1157,10 +1055,10 @@ private:
 	bool delCopyOrCutFromIndexToIndex(TypesOfCommands typeOfCommand, std::string actionInPast) {
 		int startIndex, endIndex;
 
-		startIndex = enterNumberInRange("Початковий індекс: ", 0, Editor::currentText->size() - 1, true, "був введений індекс, який виходить за межі тексту!");
+		startIndex = enterNumberInRange("Початковий індекс (нумерація символів - з 0): ", 0, Editor::currentText->size() - 1, true, "був введений індекс, який виходить за межі тексту!");
 		if (startIndex == -1) return false;
 
-		endIndex = enterNumberInRange("Кінцевий індекс: ", 0, Editor::currentText->size() - 1, true, "був введений індекс, який виходить за межі тексту!");
+		endIndex = enterNumberInRange("Кінцевий індекс (нумерація символів - з 0): ", 0, Editor::currentText->size() - 1, true, "був введений індекс, який виходить за межі тексту!");
 		if (endIndex == -1) return false;
 
 		commandsManager->invokeCommand(typeOfCommand, startIndex, endIndex);
@@ -1223,7 +1121,7 @@ private:
 	}
 
 	bool undoAction() {
-		if (Editor::currentSession->sizeOfCommandsHistory() > 0 && Editor::currentSession->getCurrentCommandIndexInHistory() != -1)
+		if (Editor::currentSession->sizeOfCommandsHistory() > 0 && Editor::currentSession->getCurIndexInCommHistory() != -1)
 		{
 			commandsManager->invokeCommand(TypesOfCommands::Undo);
 			Notification::successNotification("команда була успішно скасована!");
@@ -1523,6 +1421,8 @@ int main()
 }
 
 //Заметки:
+
+//додати сортування та пошук
 
 //виводити результат після кожної дії
 
