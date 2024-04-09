@@ -142,40 +142,24 @@ public:
 
 class Command {
 protected:
-	friend class FilesManager;
-
 	Editor* editor;
 	int startPosition, endPosition;
 	std::string textToProcess, textToPaste;
-	Command* previousCommand, *commandToUndo, *commandToRedo;
+	Command* previousCommand, *commandToUndoOrRedo;
+
 public:
 	virtual void execute() = 0;
 	virtual void undo() = 0;
-	virtual Command* copy() = 0;
 
-	void setEditor(Editor* editor) {
-		this->editor = editor;
-	}
-
-	std::string getTextToProcess() {
-		return textToProcess;
-	}
-
-	void setParameters(TypesOfCommands typeOfCommand, Command* previousCommand, Command* commandToUndo, Command* commandToRedo, int startPosition, int endPosition, std::string textToPaste) {
-		if (typeOfCommand == TypesOfCommands::Undo)
+	void setParameters(TypesOfCommands typeOfCommand, Command* previousCommand, Command* commandToUndoOrRedo, int startPosition, int endPosition, std::string textToPaste) {
+		if (typeOfCommand == TypesOfCommands::Undo || typeOfCommand == TypesOfCommands::Redo)
 		{
-			this->commandToUndo = commandToUndo;
-			return;
-		}
-		else if (typeOfCommand == TypesOfCommands::Redo) {
-			this->commandToRedo = commandToRedo;
+			this->commandToUndoOrRedo = commandToUndoOrRedo;
 			return;
 		}
 
 		if (startPosition > endPosition)
 			std::swap(startPosition, endPosition);
-		if (endPosition > Editor::getCurrentText()->size() - 1)
-			endPosition = Editor::getCurrentText()->size() - 1;
 
 		this->startPosition = startPosition;
 		this->endPosition = endPosition;
@@ -184,6 +168,42 @@ public:
 
 		if (typeOfCommand == TypesOfCommands::Paste)
 			this->textToPaste = textToPaste;
+	}
+
+	std::string getTextToProcess() {
+		return textToProcess;
+	}
+
+	std::string getTextToPaste() {
+		return textToPaste;
+	}
+
+	int getStartPosition() {
+		return startPosition;
+	}
+
+	int getEndPosition() {
+		return endPosition;
+	}
+
+	void setTextToProcess(std::string textToProcess) {
+		this->textToProcess = textToProcess;
+	}
+
+	void setTextToPaste(std::string textToPaste) {
+		this->textToPaste = textToPaste;
+	}
+
+	void setStartPosition(int startPosition) {
+		this->startPosition = startPosition;
+	}
+
+	void setEndPosition(int endPosition) {
+		this->endPosition = endPosition;
+	}
+
+	void setPreviousCommand(Command* previousCommand) {
+		this->previousCommand = previousCommand;
 	}
 };
 
@@ -362,8 +382,6 @@ public:
 	void execute() override;
 
 	void undo() override;
-
-	Command* copy() override;
 };
 
 class DeleteCommand : public Command {
@@ -374,7 +392,7 @@ public:
 
 	void undo() override;
 
-	Command* copy() override;
+	Command* copy();
 };
 
 class CutCommand : public Command {
@@ -385,7 +403,7 @@ public:
 
 	void undo() override;
 
-	Command* copy() override;
+	Command* copy();
 };
 
 class PasteCommand : public Command {
@@ -396,35 +414,31 @@ public:
 
 	void undo() override;
 
-	Command* copy() override;
+	Command* copy();
 };
 
 class UndoCommand : public Command {
 public:
 	~UndoCommand() {
-		if (commandToUndo)
-			delete (commandToUndo);
+		if (commandToUndoOrRedo)
+			delete (commandToUndoOrRedo);
 	}
 
 	void execute() override;
 
 	void undo() override;
-
-	Command* copy() override;
 };
 
 class RedoCommand : public Command {
 public:
 	~RedoCommand() {
-		if (commandToRedo)
-			delete (commandToRedo);
+		if (commandToUndoOrRedo)
+			delete (commandToUndoOrRedo);
 	}
 
 	void execute() override;
 
 	void undo() override;
-
-	Command* copy() override;
 };
 
 class FilesManager {
@@ -515,9 +529,9 @@ private:
 
 				ofs_session << delimiter;
 
-				ofs_session << command->textToProcess << std::endl;
+				ofs_session << command->getTextToProcess() << std::endl;
 
-				if (command->textToProcess == "")
+				if (command->getTextToProcess() == "")
 					ofs_session << std::endl;
 
 				ofs_session << delimiter;
@@ -525,17 +539,17 @@ private:
 				if(typeOfCommand == "PasteCommand\n")
 
 				{
-					ofs_session << command->textToPaste << std::endl;
+					ofs_session << command->getTextToPaste() << std::endl;
 
-					if (command->textToPaste == "")
+					if (command->getTextToPaste() == "")
 						ofs_session << std::endl;
 
 					ofs_session << delimiter;
 				}
 
-				ofs_session << command->startPosition << std::endl;
+				ofs_session << command->getStartPosition() << std::endl;
 
-				ofs_session << command->endPosition << std::endl;
+				ofs_session << command->getEndPosition() << std::endl;
 			}
 
 			ofs_session.close();
@@ -586,7 +600,7 @@ private:
 					command = new DeleteCommand(editor);
 
 				if (session->sizeOfCommandsHistory() > 0)
-					command->previousCommand = session->getLastCommand();
+					command->setPreviousCommand(session->getLastCommand());
 
 				getline(ifs_session, line);
 				while (getline(ifs_session, line)) {
@@ -594,7 +608,7 @@ private:
 						break;
 					text += line + "\n";
 				}
-				command->textToProcess = text;
+				command->setTextToProcess(text);
 
 				if(typeOfCommand == "PasteCommand")
 				{
@@ -604,14 +618,14 @@ private:
 							break;
 						text += line + "\n";
 					}
-					command->textToPaste = text;
+					command->setTextToPaste(text);
 				}
 
 				getline(ifs_session, line);
-				command->startPosition = stoi(line);
+				command->setStartPosition(stoi(line));
 
 				getline(ifs_session, line);
-				command->endPosition = stoi(line);
+				command->setEndPosition(stoi(line));
 
 				session->addCommandAsLast(command);
 				text = "";
@@ -839,7 +853,7 @@ Command* PasteCommand::copy() {
 }
 
 void UndoCommand::execute() {
-	commandToUndo->undo();
+	commandToUndoOrRedo->undo();
 }
 
 void UndoCommand::undo() { }
@@ -847,7 +861,7 @@ void UndoCommand::undo() { }
 Command* UndoCommand::copy() { return nullptr; }
 
 void RedoCommand::execute() {
-	*(Editor::getCurrentText()) = commandToRedo->getTextToProcess();
+	*(Editor::getCurrentText()) = commandToUndoOrRedo->getTextToProcess();
 }
 
 void RedoCommand::undo() { }
@@ -859,18 +873,18 @@ private:
 	std::map<TypesOfCommands, Command*> manager;
 
 	void setParametersForCommand(TypesOfCommands typeOfCommand, int startPosition = 0, int endPosition = 0, std::string textToPaste = "") {
-		Command* commandToUndo = nullptr, * commandToRedo = nullptr, * previousCommand = nullptr;
+		Command* commandToUndoOrRedo = nullptr, * previousCommand = nullptr;
 
 		if (typeOfCommand == TypesOfCommands::Undo)
-			commandToUndo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurrentCommandIndexInHistory());
+			commandToUndoOrRedo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurrentCommandIndexInHistory());
 
 		if(typeOfCommand == TypesOfCommands::Redo)
-			commandToRedo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurrentCommandIndexInHistory() + 1);
+			commandToUndoOrRedo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurrentCommandIndexInHistory() + 1);
 
 		if (Editor::getCurrentSession()->getCurrentCommandIndexInHistory() != -1 && typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo)
 			previousCommand = Editor::getCurrentSession()->getLastCommand();
 
-		manager[typeOfCommand]->setParameters(typeOfCommand, previousCommand, commandToUndo, commandToRedo, startPosition, endPosition, textToPaste);
+		manager[typeOfCommand]->setParameters(typeOfCommand, previousCommand, commandToUndoOrRedo, startPosition, endPosition, textToPaste);
 	}
 
 	void deleteUselessLeftCommandsIfNecessary(TypesOfCommands typeOfCommand) {
