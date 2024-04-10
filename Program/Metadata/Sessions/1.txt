@@ -6,7 +6,6 @@ PasteCommand
 Hey, friend! Let's go in adventure!
 We will meet dragons!
 ---
-Hey, friend! Let's go in adventure!
 We will meet dragons!
 ---
 0
@@ -16,7 +15,6 @@ PasteCommand
 Hey, friend! Let's go in adventure!
 We will meet dragons!Hey, friend! Let's go in advent
 ---
-Hey, friend! Let's go in adventure!
 We will meet dragons!Hey, friend! Let's go in advent
 ---
 56
@@ -45,7 +43,6 @@ PasteCommand
 n adventure!
 We wil
 ---
-n adventure!
 We wil
 ---
 0
@@ -55,7 +52,6 @@ PasteCommand
 n adventure!
 We wilHey, friend! Let's go in advent
 ---
-n adventure!
 We wilHey, friend! Let's go in advent
 ---
 18

@@ -8,7 +8,6 @@ Hey, wanna some crisps?
 Sure, take some.
 
 ---
-Hello World! How are you doin'?
 Hey, wanna some crisps?
 Sure, take some.
 
@@ -22,7 +21,6 @@ Hey, wanna some crisps?
 Sure, take some.
 
 ---
-Let's get out!Hello World! How are you doin'?
 Hey, wanna some crisps?
 Sure, take some.
 
@@ -37,7 +35,6 @@ Hey, wanna some crisps?
 Sure, take some.
 
 ---
-Let's get out!He you doin'?
 Hey, wannllo World! How are you doin'?
 Hey, wanna some crisps?
 Sure, take some.

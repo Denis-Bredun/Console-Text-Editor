@@ -17,8 +17,8 @@ enum class TypesOfCommands {
 
 class Notification {
 private:
-	static HANDLE consoleHandle;
-	static int codeOfRed, codeOfGreen;
+	static HANDLE consoleHandle; //дескриптор консолі задля ідентифікації консолі
+	static int codeOfRed, codeOfGreen; //код червоного і зеленого кольорів у консолі
 
 	static void changeConsoleColor(int colorCode = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE) {
 		SetConsoleTextAttribute(consoleHandle, colorCode);
@@ -47,7 +47,7 @@ int Notification::codeOfRed = 12, Notification::codeOfGreen = 10;
 
 class Clipboard {
 private:
-	std::stack<std::string> clipboard;
+	std::stack<std::string> clipboard; //буфер обміну
 
 public:
 	void addData(std::string data) { clipboard.push(data); }
@@ -71,9 +71,9 @@ class Editor {
 private:
 	friend class Program;
 
-	static SessionsHistory* sessionsHistory;
-	static Session* currentSession;
-	static std::string* currentText;
+	static SessionsHistory* sessionsHistory; //історія сеансів
+	static Session* currentSession; //сеанс, з яким користувач працює в даний момент
+	static std::string* currentText; //текст, який користувач редагує в даний момент
 
 	void tryToLoadSessions();
 	void tryToUnloadSessions();
@@ -100,10 +100,11 @@ public:
 
 class Command {
 protected:
-	Editor* editor;
-	int startPosition, endPosition;
-	std::string textToProcess, textToPaste;
-	Command* previousCommand, *commandToUndoOrRedo;
+	Editor* editor; //редактор, в якому відбувається редагування тексту за допомогою команд
+	int startPosition, endPosition; //початкова та кінцева позиції для вставки, заміни, видалення, копіювання, вирізання
+	std::string textToProcess, textToPaste; //поля для тексту, який обробляємо і для тексту, який вставляємо 
+	Command* previousCommand, *commandToUndoOrRedo; //вказівник на попередню команду (в історії команд щось по типу однонапрямленого списка),
+													//далі - вказівник на команду, яку збираємось скасувати або повторити
 
 public:
 	virtual void execute() = 0;
@@ -143,10 +144,11 @@ public:
 
 class Session {
 private:
-	std::stack<Command*, std::vector<Command*>> commandsHistory;
-	int currentCommandIndexInHistory;
-	Clipboard* clipboard;
-	std::string name;
+	std::stack<Command*, std::vector<Command*>> commandsHistory; //історія команд
+	int currentCommandIndexInHistory; //індекс на команді, на якій знаходиться користувач, бо, можливо, він скасував декілька команд або повторив,
+									  //і це потрібно відслідковвувати
+	Clipboard* clipboard; //буфер обміну
+	std::string name; //ім'я сеансу
 
 public:
 	Session() { 
@@ -193,7 +195,7 @@ public:
 
 class SessionsHistory {
 private:
-	std::stack<Session*, std::vector<Session*>> sessions;
+	std::stack<Session*, std::vector<Session*>> sessions; //історія сеансів
 
 public:
 	~SessionsHistory() {
@@ -326,12 +328,12 @@ class FilesManager {
 private:
 	friend class Editor;
 
-	static const std::string METADATA_DIRECTORY,
-		SESSIONS_METADATA_DIRECTORY,
-		CLIPBOARD_METADATA_DIRECTORY,
-		AVAILABLE_SESSIONS_FILE,
-		AVAILABLE_SESSIONS_FULLPATH,
-		SESSIONS_DIRECTORY;
+	static const std::string METADATA_DIRECTORY, //директорія папки метаданих
+		SESSIONS_METADATA_DIRECTORY, //директорія для метаданих сеаснів - назва, команди і т п
+		CLIPBOARD_METADATA_DIRECTORY, //директорія для зберігання буферів обмінів сеансів
+		AVAILABLE_SESSIONS_FILE, //текстовий файл, на якому зберігаються взагалі вже існуюючі сеанси
+		AVAILABLE_SESSIONS_FULLPATH, //METADATA_DIRECTORY + AVAILABLE_SESSIONS_FULLPATH
+		SESSIONS_DIRECTORY; //директорія, де безпосередньо збергаються текстові файли, які ми редагуємо в програмі
 
 	static std::stack<std::string> getFilepathsForMetadata(std::string directory) {
 		std::stack<std::string> filesFromMetadataDirectory;
@@ -447,18 +449,13 @@ private:
 
 		if (command->getTextToProcess() != "")
 			*ofs_session << command->getTextToProcess() << std::endl;
-		else
-			*ofs_session << command->getTextToProcess();
 
 		*ofs_session << delimiter << std::endl;
 
 		if (typeOfCommand == "PasteCommand\n")
-
 		{
-			if (command->getTextToProcess() != "")
-				*ofs_session << command->getTextToProcess() << std::endl;
-			else
-				*ofs_session << command->getTextToProcess();
+			if (command->getTextToPaste() != "")
+				*ofs_session << command->getTextToPaste() << std::endl;
 
 			*ofs_session << delimiter << std::endl;
 		}
@@ -732,7 +729,7 @@ Command* RedoCommand::copy() { return nullptr; }
 
 class CommandsManager {
 private:
-	std::map<TypesOfCommands, Command*> manager;
+	std::map<TypesOfCommands, Command*> manager; //зберігач усіх команд, дозволяє зручно їми керувати за допомогою поліморфізму
 
 	bool isNotUndoOrRedoCommand(TypesOfCommands typeOfCommand) { return typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo; }
 	void setParametersForCommand(TypesOfCommands typeOfCommand, int startPosition, int endPosition, std::string textToPaste) {
@@ -798,8 +795,8 @@ public:
 
 class Program {
 private:
-	Editor* editor;
-	CommandsManager* commandsManager;
+	Editor* editor; //редактор
+	CommandsManager* commandsManager; //менеджер команд, за допомогою якого й викликаються усі команди
 
 	bool validateEnteredNumber(std::string option, short firstOption, short lastOption) {
 		if (option.empty())
@@ -1382,45 +1379,3 @@ int main()
 	program.setUp();
 	program.executeMainMenu();
 }
-
-//Заметки:
-
-//вынести методы отдельно от классов
-
-//сделать блок-схему
-
-
-
-
-
-
-
-
-
-
-
-
-//доделать доп пункты из задания курсовой для меню
-
-//возможно добавить предпросмотр при действиях над змістом
-
-//обрабатывать закрытие пользователем проги, чтобы сохранять метаданные
-
-//добавить историю действий для каждой сессии, как в гугл док
-
-//идея вывода инфы с помощью html
-
-//взять идеи у Стаса
-
-//написать комменты к классам
-
-
-
-
-
-
-
-
-
-
-//изменить лит джерела со "страниц" на "page"
