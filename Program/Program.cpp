@@ -205,6 +205,16 @@ public:
 
 	void addSessionToEnd(Session* session) { sessions.push(session); }
 	Session* getSessionByIndex(int index) { return sessions._Get_container()[index]; }
+	Session* getSessionByName(std::string name) {
+		auto sessionsIter = std::find_if(sessions._Get_container().begin(), sessions._Get_container().end(), [name](Session* session) {
+			return session->getName() == name + ".txt" || session->getName() == name;
+			});
+
+		if (sessionsIter != sessions._Get_container().end())
+			return *sessionsIter;
+		else
+			return nullptr;
+	}
 	std::string deleteSessionByIndex(int index) {
 		auto ptrOnUnderlyingContainer = &sessions._Get_container();
 		auto ptrOnRetiringSession = (*ptrOnUnderlyingContainer)[index];
@@ -233,6 +243,22 @@ public:
 		for (int i = 0; i < sessions.size(); i++)
 			std::cout << "\nСеанс #" << i + 1 << ": " << sessions._Get_container()[i]->getName();
 		std::cout << std::endl;
+	}
+
+	void sortByName() {
+		std::vector<Session*> tempSessions;
+
+		while (!sessions.empty()) {
+			tempSessions.push_back(sessions.top());
+			sessions.pop();
+		}
+
+		std::sort(tempSessions.begin(), tempSessions.end(), [](Session* a, Session* b) {
+			return a->getName() < b->getName();
+			});
+
+		for (Session* session : tempSessions) 
+			sessions.push(session);
 	}
 };
 
@@ -380,7 +406,12 @@ private:
 
 		session = sessionsHistory->getSessionByIndex(index);
 
-		std::ofstream ofs_aval_session(AVAILABLE_SESSIONS_FULLPATH, std::ios_base::app);
+		std::ofstream ofs_aval_session;
+		if(index == 0)
+			ofs_aval_session.open(AVAILABLE_SESSIONS_FULLPATH);
+		else
+			ofs_aval_session.open(AVAILABLE_SESSIONS_FULLPATH, std::ios_base::app);
+
 		ofs_aval_session << session->getName() << std::endl;
 		ofs_aval_session.close();
 
@@ -799,6 +830,10 @@ private:
 	void readDataFromFile() {
 		Editor::currentText = new std::string(FilesManager::readFullDataFromFile(FilesManager::getSessionsDirectory() + Editor::currentSession->getName()));
 	}
+	void startMakeActionsOnContentMenu(std::function<void()> makeActionsOnContentMenu, int index = 0) {
+		if (index != -1 && makeActionsOnContentMenu)
+			makeActionsOnContentMenu();
+	}
 
 	void templateForMenusAboutSessions(int& choice, std::string action) {
 		std::cout << "\nЯкий сеанс хочете " << action << ":\n";
@@ -806,30 +841,45 @@ private:
 		std::cout << "1. Останній\n";
 		std::cout << "2. Найперший\n";
 		std::cout << "3. За позицією\n";
-		choice = enterNumberInRange("Ваш вибір: ", 0, 3);
+		std::cout << "4. Відсортувати сеанси за іменем\n";
+		std::cout << "5. Отримати за іменем\n";
+		choice = enterNumberInRange("Ваш вибір: ", 0, 5);
 	}
 	void templateForExecutingMenusAboutSessions(std::function<void(int&)> mainFunc, std::function<void(int&)> menu, std::function<void()> additionalFunc = nullptr) {
 		int choice, index = -1;
+		bool wasSessionFound = false;
+
 		do
 		{
 			Editor::sessionsHistory->printSessionsHistory();
 			menu(choice);
 			switch (choice)
 			{
+			case -1: continue;
 			case 0:
 				std::cout << "\nПовернення до Головного меню.\n\n";
 				system("pause");
 				return;
-			case 1:
-			case 2:
-			case 3:
+			default:
 				if (doesAnySessionExist())
 				{
-					index = choice == 1 ? Editor::sessionsHistory->size() : choice == 2 ? 1 : -1;
-					mainFunc(index);
-
-					if(index != -1 && additionalFunc)
-						additionalFunc();
+					switch (choice)
+					{
+					case 1:
+					case 2:
+					case 3:
+						index = choice == 1 ? Editor::sessionsHistory->size() : choice == 2 ? 1 : -1;
+						mainFunc(index);
+						startMakeActionsOnContentMenu(additionalFunc, index);
+						continue;
+					case 4:
+						Editor::sessionsHistory->sortByName();
+						continue;
+					case 5:
+						wasSessionFound = setCurrentSessionByName();
+						if(wasSessionFound)
+							startMakeActionsOnContentMenu(additionalFunc);
+					}
 				}
 			}
 		} while (true);
@@ -837,15 +887,22 @@ private:
 
 	std::string getTextUsingKeyboard() {
 		std::string line, text;
+		int countOfLines = 0;
 
 		std::cout << "\nВведіть текст (зупинити - з наступного рядка введіть -1):\n";
 		while (getline(std::cin, line)) {
 			if (line == "-1")
 				break;
-			else if (line == "")
-				text += "\n";
-			else
-				text += line;
+			else {
+				countOfLines++;
+				if (countOfLines > 1)
+					text += "\n" + line;
+				else
+					if (line == "")
+						text += "\n";
+					else
+						text += line;
+			}
 		}
 
 		return text;
@@ -1234,6 +1291,17 @@ private:
 		if(tryToEnterIndexForSession(index))
 			Editor::currentSession = Editor::sessionsHistory->getSessionByIndex(index - 1);
 	}
+	bool setCurrentSessionByName() {
+		std::string name;
+		std::cout << "\nВведіть ім'я сеансу: ";
+		getline(std::cin, name);
+		auto session = Editor::sessionsHistory->getSessionByName(name);
+		if (session == nullptr)
+			Notification::errorNotification("сеанса з таким іменем не існує!");
+		else 
+			Editor::currentSession = session;
+		return session != nullptr;
+	}
 	void deleteSessionByIndex(int index = -1) {
 		if(tryToEnterIndexForSession(index)){
 			std::string nameOfSession = Editor::sessionsHistory->deleteSessionByIndex(index - 1);
@@ -1316,12 +1384,6 @@ int main()
 }
 
 //Заметки:
-
-//додати сортування та пошук
-
-//проверить запись и считывание метаданных нескольких файлов
-
-//сделать тестовые данные
 
 //вынести методы отдельно от классов
 
