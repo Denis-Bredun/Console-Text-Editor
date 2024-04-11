@@ -454,6 +454,8 @@ private:
 
 		if (typeOfCommand == "PasteCommand\n")
 		{
+			*ofs_session << delimiter << std::endl;
+
 			if (command->getTextToPaste() != "")
 				*ofs_session << command->getTextToPaste() << std::endl;
 
