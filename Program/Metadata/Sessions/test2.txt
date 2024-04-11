@@ -1,0 +1,54 @@
+test2.txt
+5
+2
+PasteCommand
+---
+Here I test how data can be written in diffenent
+
+files.
+---
+---
+Here I test how data can be written in diffenent
+
+files.
+---
+0
+0
+CutCommand
+---
+test how data can be written in diffenent
+
+files.
+---
+0
+6
+DeleteCommand
+---
+data can be written in diffenent
+
+files.
+---
+0
+8
+PasteCommand
+---
+data can be written in diffenent
+
+files.Here I 
+---
+---
+Here I 
+---
+39
+39
+PasteCommand
+---
+data can be written in diffenent
+
+files.Here I test how da
+---
+---
+test how da
+---
+46
+46
