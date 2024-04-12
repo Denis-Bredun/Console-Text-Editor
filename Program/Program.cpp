@@ -6,15 +6,6 @@
 #include <functional>
 #include <windows.h>
 
-enum class TypesOfCommands {
-	Copy,
-	Paste,
-	Cut,
-	Delete,
-	Undo,
-	Redo
-};
-
 class Clipboard {
 private:
 	std::stack<std::string> clipboard; //буфер обміну
@@ -81,8 +72,8 @@ public:
 	virtual void undo() = 0;
 	virtual Command* copy() = 0;
 
-	void setParameters(TypesOfCommands typeOfCommand, Command* previousCommand, Command* commandToUndoOrRedo, int startPosition, int endPosition, std::string textToPaste) {
-		if (typeOfCommand == TypesOfCommands::Undo || typeOfCommand == TypesOfCommands::Redo)
+	void setParameters(std::string typeOfCommand, Command* previousCommand, Command* commandToUndoOrRedo, int startPosition, int endPosition, std::string textToPaste) {
+		if (typeOfCommand == "Undo" || typeOfCommand == "Redo")
 		{
 			this->commandToUndoOrRedo = commandToUndoOrRedo;
 			return;
@@ -96,7 +87,7 @@ public:
 		this->textToProcess = *(Editor::getCurrentText());
 		this->previousCommand = previousCommand;
 
-		if (typeOfCommand == TypesOfCommands::Paste)
+		if (typeOfCommand == "Paste")
 			this->textToPaste = textToPaste;
 	}
 
@@ -701,16 +692,16 @@ Command* RedoCommand::copy() { return nullptr; }
 
 class CommandsManager {
 private:
-	std::map<TypesOfCommands, Command*> manager; //зберігач усіх команд, дозволяє зручно їми керувати за допомогою поліморфізму
+	std::map<std::string, Command*> manager; //зберігач усіх команд, дозволяє зручно їми керувати за допомогою поліморфізму
 
-	bool isNotUndoOrRedoCommand(TypesOfCommands typeOfCommand) { return typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo; }
-	void setParametersForCommand(TypesOfCommands typeOfCommand, int startPosition, int endPosition, std::string textToPaste) {
+	bool isNotUndoOrRedoCommand(std::string typeOfCommand) { return typeOfCommand != "Undo" && typeOfCommand != "Redo"; }
+	void setParametersForCommand(std::string typeOfCommand, int startPosition, int endPosition, std::string textToPaste) {
 		Command* commandToUndoOrRedo = nullptr, * previousCommand = nullptr;
 
-		if (typeOfCommand == TypesOfCommands::Undo)
+		if (typeOfCommand == "Undo")
 			commandToUndoOrRedo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurIndexInCommHistory());
 
-		if(typeOfCommand == TypesOfCommands::Redo)
+		if(typeOfCommand == "Redo")
 			commandToUndoOrRedo = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->getCurIndexInCommHistory() + 1);
 
 		if (Editor::getCurrentSession()->getCurIndexInCommHistory() != -1 && isNotUndoOrRedoCommand(typeOfCommand))
@@ -721,8 +712,8 @@ private:
 	int getCountOfForwardCommands() {
 		return Editor::getCurrentSession()->sizeOfCommandsHistory() - 1 - Editor::getCurrentSession()->getCurIndexInCommHistory();
 	}
-	void deleteForwardCommandsIfNecessary(TypesOfCommands typeOfCommand) {
-		if (typeOfCommand != TypesOfCommands::Undo && typeOfCommand != TypesOfCommands::Redo)
+	void deleteForwardCommandsIfNecessary(std::string typeOfCommand) {
+		if (typeOfCommand != "Undo" && typeOfCommand != "Redo")
 			if (isThereAnyCommandForward()) {
 				for (int i = 1; i <= getCountOfForwardCommands(); i++)
 					Editor::getCurrentSession()->deleteLastCommand();
@@ -731,12 +722,12 @@ private:
 
 public:
 	CommandsManager(Editor* editor) {
-		manager[TypesOfCommands::Copy] = new CopyCommand(editor);
-		manager[TypesOfCommands::Paste] = new PasteCommand(editor);
-		manager[TypesOfCommands::Cut] = new CutCommand(editor);
-		manager[TypesOfCommands::Delete] = new DeleteCommand(editor);
-		manager[TypesOfCommands::Undo] = new UndoCommand();
-		manager[TypesOfCommands::Redo] = new RedoCommand();
+		manager["Copy"] = new CopyCommand(editor);
+		manager["Paste"] = new PasteCommand(editor);
+		manager["Cut"] = new CutCommand(editor);
+		manager["Delete"] = new DeleteCommand(editor);
+		manager["Undo"] = new UndoCommand();
+		manager["Redo"] = new RedoCommand();
 	}
 	~CommandsManager() {
 		for (auto& pair : manager) { delete (pair.second); }
@@ -747,20 +738,20 @@ public:
 		return Editor::getCurrentSession()->sizeOfCommandsHistory() != 0 &&
 			Editor::getCurrentSession()->getCurIndexInCommHistory() < Editor::getCurrentSession()->sizeOfCommandsHistory() - 1;
 	}
-	void invokeCommand(TypesOfCommands typeOfCommand, int startPosition = 0, int endPosition = 0, std::string textToPaste = "") {
+	void invokeCommand(std::string typeOfCommand, int startPosition = 0, int endPosition = 0, std::string textToPaste = "") {
 
 		deleteForwardCommandsIfNecessary(typeOfCommand);
 		setParametersForCommand(typeOfCommand, startPosition, endPosition, textToPaste);
 
 		manager[typeOfCommand]->execute();
 
-		if (isNotUndoOrRedoCommand(typeOfCommand) && typeOfCommand != TypesOfCommands::Copy)
+		if (isNotUndoOrRedoCommand(typeOfCommand) && typeOfCommand != "Copy")
 			Editor::getCurrentSession()->addCommandAsLast(manager[typeOfCommand]->copy());
 
-		if(typeOfCommand == TypesOfCommands::Undo)
+		if(typeOfCommand == "Undo")
 			Editor::getCurrentSession()->setCurIndexInCommHistory(Editor::getCurrentSession()->getCurIndexInCommHistory() - 1);
 		else
-			if (typeOfCommand != TypesOfCommands::Copy)
+			if (typeOfCommand != "Copy")
 				Editor::getCurrentSession()->setCurIndexInCommHistory(Editor::getCurrentSession()->getCurIndexInCommHistory() + 1);
 	}
 };
@@ -909,7 +900,7 @@ private:
 	}
 
 	void pasteText(int startIndex, int endIndex, std::string textToPaste) {
-		commandsManager->invokeCommand(TypesOfCommands::Paste, startIndex, endIndex, textToPaste);
+		commandsManager->invokeCommand("Paste", startIndex, endIndex, textToPaste);
 		std::cout << "\nУспіх: дані були успішно додані в файл!\n\n";
 	}
 	void pasteTextInBeginningOrEnd(int choice, std::string textToPaste) {
@@ -928,7 +919,7 @@ private:
 		if (index == -1)
 			return index;
 
-		commandsManager->invokeCommand(TypesOfCommands::Paste, index, index, textToPaste);
+		commandsManager->invokeCommand("Paste", index, index, textToPaste);
 
 		return index;
 	}
@@ -943,17 +934,17 @@ private:
 		int endIndex = enterNumberInRange("Кінцевий індекс (нумерація символів - з 0): ", startOfRange, endOfRange, "був введений індекс, який виходить за межі тексту!");
 		if (endIndex == -1) return -1;
 
-		commandsManager->invokeCommand(TypesOfCommands::Paste, startIndex, endIndex, textToPaste);
+		commandsManager->invokeCommand("Paste", startIndex, endIndex, textToPaste);
 
 		return endIndex;
 	}
 
-	bool delCopyOrCutWholeText(TypesOfCommands typeOfCommand, std::string actionInPast) {
+	bool delCopyOrCutWholeText(std::string typeOfCommand, std::string actionInPast) {
 		commandsManager->invokeCommand(typeOfCommand, 0, editor->currentText->size() - 1);
 		std::cout << "\nУспіх: дані були успішно " + actionInPast + "!\n\n";
 		return true;
 	}
-	bool delCopyOrCutFromIndexToIndex(TypesOfCommands typeOfCommand, std::string actionInPast) {
+	bool delCopyOrCutFromIndexToIndex(std::string typeOfCommand, std::string actionInPast) {
 		int startIndex, endIndex;
 
 		startIndex = enterNumberInRange("Початковий індекс (нумерація символів - з 0): ", 0, editor->currentText->size() - 1, "був введений індекс, який виходить за межі тексту!");
@@ -966,7 +957,7 @@ private:
 		std::cout << "\nУспіх: дані були успішно " + actionInPast + "!\n\n";
 		return true;
 	}
-	bool delCopyOrCutText(TypesOfCommands typeOfCommand, std::string actionForMenu, std::string actionInPast) {
+	bool delCopyOrCutText(std::string typeOfCommand, std::string actionForMenu, std::string actionInPast) {
 		int choice;
 
 		editor->printCurrentText();
@@ -993,18 +984,18 @@ private:
 		else
 		{
 			if (action == "видалити")
-				return delCopyOrCutText(TypesOfCommands::Delete, action, "видалені");
+				return delCopyOrCutText("Delete", action, "видалені");
 			else if (action == "скопіювати")
-				return delCopyOrCutText(TypesOfCommands::Copy, action, "скопійовані");
+				return delCopyOrCutText("Copy", action, "скопійовані");
 			else
-				return delCopyOrCutText(TypesOfCommands::Cut, action, "вирізані");
+				return delCopyOrCutText("Cut", action, "вирізані");
 		}
 	}
 
 	bool undoAction() {
 		if (editor->currentSession->sizeOfCommandsHistory() > 0 && editor->currentSession->getCurIndexInCommHistory() != -1)
 		{
-			commandsManager->invokeCommand(TypesOfCommands::Undo);
+			commandsManager->invokeCommand("Undo");
 			std::cout << "\nУспіх: команда була успішно скасована!\n\n";
 			return true;
 		}
@@ -1015,7 +1006,7 @@ private:
 		bool isThereAnyCommandForward = commandsManager->isThereAnyCommandForward();
 		if (isThereAnyCommandForward)
 		{
-			commandsManager->invokeCommand(TypesOfCommands::Redo);
+			commandsManager->invokeCommand("Redo");
 			std::cout << "\nУспіх: команда була успішно повторена!\n\n";
 
 		}
