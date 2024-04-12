@@ -827,7 +827,7 @@ private:
 		return isOptionVerified? stoi(option) : -1;
 	}
 	void readDataFromFile() {
-		Editor::currentText = new std::string(FilesManager::readFullDataFromFile(FilesManager::getSessionsDirectory() + Editor::currentSession->getName()));
+		editor->currentText = new std::string(FilesManager::readFullDataFromFile(FilesManager::getSessionsDirectory() + editor->currentSession->getName()));
 	}
 	void startMakeActionsOnContentMenu(std::function<void()> makeActionsOnContentMenu, int index = 0) {
 		if (index != -1 && makeActionsOnContentMenu)
@@ -850,7 +850,7 @@ private:
 
 		do
 		{
-			Editor::sessionsHistory->printSessionsHistory();
+			editor->sessionsHistory->printSessionsHistory();
 			menu(choice);
 			switch (choice)
 			{
@@ -867,12 +867,12 @@ private:
 					case 1:
 					case 2:
 					case 3:
-						index = choice == 1 ? Editor::sessionsHistory->size() : choice == 2 ? 1 : -1;
+						index = choice == 1 ? editor->sessionsHistory->size() : choice == 2 ? 1 : -1;
 						mainFunc(index);
 						startMakeActionsOnContentMenu(additionalFunc, index);
 						continue;
 					case 4:
-						Editor::sessionsHistory->sortByName();
+						editor->sessionsHistory->sortByName();
 						continue;
 					case 5:
 						wasSessionFound = setCurrentSessionByName();
@@ -907,7 +907,7 @@ private:
 		return text;
 	}
 	std::string getTextFromClipboard() {
-		auto clipboard = Editor::currentSession->getClipboard();
+		auto clipboard = editor->currentSession->getClipboard();
 		if (clipboard->isEmpty()) {
 			Notification::errorNotification("в буфері обміну ще немає даних!");
 			return "";
@@ -943,15 +943,15 @@ private:
 		Notification::successNotification("дані були успішно додані в файл!");
 	}
 	void pasteTextInBeginningOrEnd(int choice, std::string textToPaste) {
-		if (Editor::currentText->size() == 0 || choice == 2)
+		if (editor->currentText->size() == 0 || choice == 2)
 			pasteText(0, 0, textToPaste);
-		else if (choice == 1 && Editor::currentText->size() != 0)
-			pasteText(Editor::currentText->size() - 1, Editor::currentText->size() - 1, textToPaste);
+		else if (choice == 1 && editor->currentText->size() != 0)
+			pasteText(editor->currentText->size() - 1, editor->currentText->size() - 1, textToPaste);
 	}
 	int pasteTextByIndex(std::string textToPaste) {
 		int startOfRange = 0, endOfRange = 0;
-		if (Editor::currentText->size() > 0)
-			endOfRange = Editor::currentText->size() - 1;
+		if (editor->currentText->size() > 0)
+			endOfRange = editor->currentText->size() - 1;
 
 		int index = enterNumberInRange("Введіть індекс, за яким будете вставляти текст: ", startOfRange, endOfRange);
 
@@ -964,8 +964,8 @@ private:
 	}
 	int pasteTextFromIndexToIndex(std::string textToPaste) {
 		int startOfRange = 0, endOfRange = 0;
-		if (Editor::currentText->size() > 0)
-			endOfRange = Editor::currentText->size() - 1;
+		if (editor->currentText->size() > 0)
+			endOfRange = editor->currentText->size() - 1;
 
 		int startIndex = enterNumberInRange("Початковий індекс (нумерація символів - з 0): ", startOfRange, endOfRange, "був введений індекс, який виходить за межі тексту!");
 		if (startIndex == -1) return -1;
@@ -979,17 +979,17 @@ private:
 	}
 
 	bool delCopyOrCutWholeText(TypesOfCommands typeOfCommand, std::string actionInPast) {
-		commandsManager->invokeCommand(typeOfCommand, 0, Editor::currentText->size() - 1);
+		commandsManager->invokeCommand(typeOfCommand, 0, editor->currentText->size() - 1);
 		Notification::successNotification("дані були успішно " + actionInPast + "!");
 		return true;
 	}
 	bool delCopyOrCutFromIndexToIndex(TypesOfCommands typeOfCommand, std::string actionInPast) {
 		int startIndex, endIndex;
 
-		startIndex = enterNumberInRange("Початковий індекс (нумерація символів - з 0): ", 0, Editor::currentText->size() - 1, "був введений індекс, який виходить за межі тексту!");
+		startIndex = enterNumberInRange("Початковий індекс (нумерація символів - з 0): ", 0, editor->currentText->size() - 1, "був введений індекс, який виходить за межі тексту!");
 		if (startIndex == -1) return false;
 
-		endIndex = enterNumberInRange("Кінцевий індекс (нумерація символів - з 0): ", 0, Editor::currentText->size() - 1, "був введений індекс, який виходить за межі тексту!");
+		endIndex = enterNumberInRange("Кінцевий індекс (нумерація символів - з 0): ", 0, editor->currentText->size() - 1, "був введений індекс, який виходить за межі тексту!");
 		if (endIndex == -1) return false;
 
 		commandsManager->invokeCommand(typeOfCommand, startIndex, endIndex);
@@ -999,7 +999,7 @@ private:
 	bool delCopyOrCutText(TypesOfCommands typeOfCommand, std::string actionForMenu, std::string actionInPast) {
 		int choice;
 
-		Editor::printCurrentText();
+		editor->printCurrentText();
 		delCopyOrCutTextMenu(choice, actionForMenu);
 
 		switch (choice)
@@ -1015,7 +1015,7 @@ private:
 		}
 	}
 	bool chooseRootDelCopyOrCut(std::string action) {
-		if (Editor::currentText->size() == 0)
+		if (editor->currentText->size() == 0)
 		{
 			Notification::errorNotification("немає тексту, який можна було б " + action + "!");
 			return false;
@@ -1032,7 +1032,7 @@ private:
 	}
 
 	bool undoAction() {
-		if (Editor::currentSession->sizeOfCommandsHistory() > 0 && Editor::currentSession->getCurIndexInCommHistory() != -1)
+		if (editor->currentSession->sizeOfCommandsHistory() > 0 && editor->currentSession->getCurIndexInCommHistory() != -1)
 		{
 			commandsManager->invokeCommand(TypesOfCommands::Undo);
 			Notification::successNotification("команда була успішно скасована!");
@@ -1106,7 +1106,7 @@ private:
 		do
 		{
 			wasTextSuccessfullyChanged = false;
-			Editor::printCurrentText();
+			editor->printCurrentText();
 			makeActionsOnContentMenu(choice);
 
 			switch (choice)
@@ -1135,7 +1135,7 @@ private:
 				wasTextSuccessfullyChanged = redoAction();
 			}
 			if(wasTextSuccessfullyChanged)
-				FilesManager::overwriteDataInExistingFile(FilesManager::getSessionsDirectory() + Editor::currentSession->getName(), *(Editor::currentText));
+				FilesManager::overwriteDataInExistingFile(FilesManager::getSessionsDirectory() + editor->currentSession->getName(), *(editor->currentText));
 		} while (true);
 	}
 	void printGettingSessionsMenu(int& choice) {
@@ -1183,7 +1183,7 @@ private:
 
 		do
 		{
-			Editor::printCurrentText();
+			editor->printCurrentText();
 			wayToGetTextForAddingMenu(choice);
 
 			switch (choice)
@@ -1208,7 +1208,7 @@ private:
 			return false;
 
 		int choice;
-		Editor::printCurrentText();
+		editor->printCurrentText();
 		wayToPasteTextMenu(choice);
 
 		switch (choice) {
@@ -1237,7 +1237,7 @@ private:
 
 	bool tryToEnterIndexForSession(int& index) {
 		if (index == -1) {
-			index = enterNumberInRange("Введіть номер сеансу: ", 1, Editor::sessionsHistory->size());
+			index = enterNumberInRange("Введіть номер сеансу: ", 1, editor->sessionsHistory->size());
 			if (index == -1)
 				return false;
 		}
@@ -1251,9 +1251,9 @@ private:
 		return false;
 	}
 	bool doesAnySessionExist() {
-		if (Editor::sessionsHistory->isEmpty())
+		if (editor->sessionsHistory->isEmpty())
 			Notification::errorNotification("в даний момент жодного сеансу немає!");
-		return !Editor::sessionsHistory->isEmpty();
+		return !editor->sessionsHistory->isEmpty();
 	}
 
 	void createSession() {
@@ -1277,7 +1277,7 @@ private:
 			std::string filepath = FilesManager::getSessionsDirectory() + newSession->getName();
 			std::ofstream file(filepath);
 			file.close();
-			Editor::sessionsHistory->addSessionToEnd(newSession);
+			editor->sessionsHistory->addSessionToEnd(newSession);
 			Notification::successNotification("сеанс був успішно створений!");
 		}
 		else
@@ -1288,22 +1288,22 @@ private:
 	}
 	void setCurrentSessionByIndex(int& index) {
 		if(tryToEnterIndexForSession(index))
-			Editor::currentSession = Editor::sessionsHistory->getSessionByIndex(index - 1);
+			editor->currentSession = editor->sessionsHistory->getSessionByIndex(index - 1);
 	}
 	bool setCurrentSessionByName() {
 		std::string name;
 		std::cout << "\nВведіть ім'я сеансу: ";
 		getline(std::cin, name);
-		auto session = Editor::sessionsHistory->getSessionByName(name);
+		auto session = editor->sessionsHistory->getSessionByName(name);
 		if (session == nullptr)
 			Notification::errorNotification("сеанса з таким іменем не існує!");
 		else 
-			Editor::currentSession = session;
+			editor->currentSession = session;
 		return session != nullptr;
 	}
 	void deleteSessionByIndex(int index = -1) {
 		if(tryToEnterIndexForSession(index)){
-			std::string nameOfSession = Editor::sessionsHistory->deleteSessionByIndex(index - 1);
+			std::string nameOfSession = editor->sessionsHistory->deleteSessionByIndex(index - 1);
 			std::string pathToSession = FilesManager::getSessionsDirectory() + nameOfSession;
 			remove(pathToSession.c_str());
 
