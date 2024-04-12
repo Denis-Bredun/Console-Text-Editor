@@ -15,36 +15,6 @@ enum class TypesOfCommands {
 	Redo
 };
 
-class Notification {
-private:
-	static HANDLE consoleHandle; //дескриптор консолі задля ідентифікації консолі
-	static int codeOfRed, codeOfGreen; //код червоного і зеленого кольорів у консолі
-
-	static void changeConsoleColor(int colorCode = FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE) {
-		SetConsoleTextAttribute(consoleHandle, colorCode);
-	}
-	static void printTextWithSpecificColor(int colorCode, std::string text) {
-		changeConsoleColor(colorCode);
-		std::cout << "\n" << text << "\n\n";
-		changeConsoleColor();
-	}
-
-public:
-	static void successNotification(std::string text) {
-		printTextWithSpecificColor(codeOfGreen, "Успіх: " + text);
-		system("pause");
-		system("cls");
-	}
-	static void errorNotification(std::string text) {
-		printTextWithSpecificColor(codeOfRed, "Помилка: " + text);
-		system("pause");
-		system("cls");
-	}
-};
-
-HANDLE Notification::consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);;
-int Notification::codeOfRed = 12, Notification::codeOfGreen = 10;
-
 class Clipboard {
 private:
 	std::stack<std::string> clipboard; //буфер обміну
@@ -822,7 +792,7 @@ private:
 		isOptionVerified = validateEnteredNumber(option, firstOption, lastOption);
 
 		if (!isOptionVerified)
-			Notification::errorNotification(error);
+			std::cout << "\n" << error << "\n\n";
 
 		return isOptionVerified? stoi(option) : -1;
 	}
@@ -909,7 +879,7 @@ private:
 	std::string getTextFromClipboard() {
 		auto clipboard = editor->currentSession->getClipboard();
 		if (clipboard->isEmpty()) {
-			Notification::errorNotification("в буфері обміну ще немає даних!");
+			std::cout << "\nПомилка: в буфері обміну ще немає даних!\n\n";
 			return "";
 		}
 
@@ -940,7 +910,7 @@ private:
 
 	void pasteText(int startIndex, int endIndex, std::string textToPaste) {
 		commandsManager->invokeCommand(TypesOfCommands::Paste, startIndex, endIndex, textToPaste);
-		Notification::successNotification("дані були успішно додані в файл!");
+		std::cout << "\nУспіх: дані були успішно додані в файл!\n\n";
 	}
 	void pasteTextInBeginningOrEnd(int choice, std::string textToPaste) {
 		if (editor->currentText->size() == 0 || choice == 2)
@@ -980,7 +950,7 @@ private:
 
 	bool delCopyOrCutWholeText(TypesOfCommands typeOfCommand, std::string actionInPast) {
 		commandsManager->invokeCommand(typeOfCommand, 0, editor->currentText->size() - 1);
-		Notification::successNotification("дані були успішно " + actionInPast + "!");
+		std::cout << "\nУспіх: дані були успішно " + actionInPast + "!\n\n";
 		return true;
 	}
 	bool delCopyOrCutFromIndexToIndex(TypesOfCommands typeOfCommand, std::string actionInPast) {
@@ -993,7 +963,7 @@ private:
 		if (endIndex == -1) return false;
 
 		commandsManager->invokeCommand(typeOfCommand, startIndex, endIndex);
-		Notification::successNotification("дані були успішно " + actionInPast + "!");
+		std::cout << "\nУспіх: дані були успішно " + actionInPast + "!\n\n";
 		return true;
 	}
 	bool delCopyOrCutText(TypesOfCommands typeOfCommand, std::string actionForMenu, std::string actionInPast) {
@@ -1017,7 +987,7 @@ private:
 	bool chooseRootDelCopyOrCut(std::string action) {
 		if (editor->currentText->size() == 0)
 		{
-			Notification::errorNotification("немає тексту, який можна було б " + action + "!");
+			std::cout << "\nПомилка: немає тексту, який можна було б " + action + "!\n\n";
 			return false;
 		}
 		else
@@ -1035,10 +1005,10 @@ private:
 		if (editor->currentSession->sizeOfCommandsHistory() > 0 && editor->currentSession->getCurIndexInCommHistory() != -1)
 		{
 			commandsManager->invokeCommand(TypesOfCommands::Undo);
-			Notification::successNotification("команда була успішно скасована!");
+			std::cout << "\nУспіх: команда була успішно скасована!\n\n";
 			return true;
 		}
-		Notification::errorNotification("немає дій, які можна було б скасувати!");
+		std::cout << "\nПомилка: немає дій, які можна було б скасувати!\n\n";
 		return false;
 	}
 	bool redoAction() {
@@ -1046,11 +1016,11 @@ private:
 		if (isThereAnyCommandForward)
 		{
 			commandsManager->invokeCommand(TypesOfCommands::Redo);
-			Notification::successNotification("команда була успішно повторена!");
+			std::cout << "\nУспіх: команда була успішно повторена!\n\n";
 
 		}
 		else
-			Notification::errorNotification("немає дій, які можна було б повторити!");
+			std::cout << "\nПомилка: немає дій, які можна було б повторити!\n\n";
 		return isThereAnyCommandForward;
 	}
 
@@ -1252,7 +1222,7 @@ private:
 	}
 	bool doesAnySessionExist() {
 		if (editor->sessionsHistory->isEmpty())
-			Notification::errorNotification("в даний момент жодного сеансу немає!");
+			std::cout << "\nПомилка: в даний момент жодного сеансу немає!\n\n";
 		return !editor->sessionsHistory->isEmpty();
 	}
 
@@ -1267,7 +1237,7 @@ private:
 		{
 			if (doesSessionWithThisNameExists(filename)) {
 				delete newSession;
-				Notification::errorNotification("сеанс з таким іменем вже існує!");
+				std::cout << "\nПомилка: сеанс з таким іменем вже існує!\n\n";
 				return;
 			}
 
@@ -1278,12 +1248,12 @@ private:
 			std::ofstream file(filepath);
 			file.close();
 			editor->sessionsHistory->addSessionToEnd(newSession);
-			Notification::successNotification("сеанс був успішно створений!");
+			std::cout << "\nУспіх: сеанс був успішно створений!\n\n";
 		}
 		else
 		{
 			delete newSession;
-			Notification::errorNotification("були введені заборонені символи!");
+			std::cout << "\nПомилка: були введені заборонені символи!\n\n";
 		}
 	}
 	void setCurrentSessionByIndex(int& index) {
@@ -1296,7 +1266,7 @@ private:
 		getline(std::cin, name);
 		auto session = editor->sessionsHistory->getSessionByName(name);
 		if (session == nullptr)
-			Notification::errorNotification("сеанса з таким іменем не існує!");
+			std::cout << "\nПомилка: сеанса з таким іменем не існує!\n\n";
 		else 
 			editor->currentSession = session;
 		return session != nullptr;
@@ -1307,7 +1277,7 @@ private:
 			std::string pathToSession = FilesManager::getSessionsDirectory() + nameOfSession;
 			remove(pathToSession.c_str());
 
-			Notification::successNotification("сеанс був успішно видалений!");
+			std::cout << "\nУспіх: сеанс був успішно видалений!\n\n";
 		}
 	}
 
