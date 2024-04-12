@@ -6,25 +6,6 @@
 #include <functional>
 #include <windows.h>
 
-class Clipboard {
-private:
-	std::stack<std::string> clipboard; //буфер обміну
-
-public:
-	void addData(std::string data) { clipboard.push(data); }
-	std::string getDataByIndex(int index) { return clipboard._Get_container()[index]; }
-
-	int size() { return clipboard.size(); }
-	bool isEmpty() { return clipboard.size() == 0; }
-
-	void printClipboard() {
-		system("cls");
-		for (int i = 0; i < clipboard.size(); i++)
-			std::cout << "\n" << i + 1 << ") \"" << getDataByIndex(i) << "\"";
-		std::cout << std::endl;
-	}
-};
-
 class Session;
 class SessionsHistory;
 
@@ -106,16 +87,13 @@ public:
 class Session {
 private:
 	std::stack<Command*, std::vector<Command*>> commandsHistory; //історія команд
+	std::stack<std::string> clipboard; //буфер обміну
 	int currentCommandIndexInHistory; //індекс на команді, на якій знаходиться користувач, бо, можливо, він скасував декілька команд або повторив,
 									  //і це потрібно відслідковвувати
-	Clipboard* clipboard; //буфер обміну
 	std::string name; //ім'я сеансу
 
 public:
-	Session() { 
-		clipboard = new Clipboard(); 
-		currentCommandIndexInHistory = -1;
-	}
+	Session() { currentCommandIndexInHistory = -1; }
 	Session(std::string filename) : Session() { name = filename; }
 	~Session() {
 		while (!commandsHistory.empty()) {
@@ -123,7 +101,6 @@ public:
 				delete commandsHistory.top();
 			commandsHistory.pop();
 		}
-		delete clipboard;
 	}
 
 	void addCommandAsLast(Command* command) { commandsHistory.push(command); }
@@ -149,9 +126,21 @@ public:
 		this->currentCommandIndexInHistory = currentCommandIndexInHistory;
 	}
 
-	Clipboard* getClipboard() { return clipboard; }
 	Command* getCommandByIndex(int index) { return commandsHistory._Get_container()[index]; }
 	int getCurIndexInCommHistory() { return currentCommandIndexInHistory; }
+
+	void addDataToClipboard(std::string data) { clipboard.push(data); }
+	std::string getDataFromClipboardByIndex(int index) { return clipboard._Get_container()[index]; }
+
+	int sizeOfClipboard() { return clipboard.size(); }
+	bool isClipboardEmpty() { return clipboard.size() == 0; }
+
+	void printClipboard() {
+		system("cls");
+		for (int i = 0; i < clipboard.size(); i++)
+			std::cout << "\n" << i + 1 << ") \"" << getDataFromClipboardByIndex(i) << "\"";
+		std::cout << std::endl;
+	}
 };
 
 class SessionsHistory {
@@ -502,56 +491,6 @@ private:
 		session->addCommandAsLast(command);
 	}
 
-	static void writeClipboardMetadata(SessionsHistory* sessionsHistory) {
-		deleteMetadataForDeletedSessions(sessionsHistory, CLIPBOARD_METADATA_DIRECTORY);
-
-		std::string delimiter = "---", clipboardMetadataFilepath;
-		Clipboard* clipboard;
-
-		if (!std::filesystem::exists(CLIPBOARD_METADATA_DIRECTORY))
-			std::filesystem::create_directories(CLIPBOARD_METADATA_DIRECTORY);
-
-		for (int i = 0; i < sessionsHistory->size(); i++)
-		{
-			clipboardMetadataFilepath = CLIPBOARD_METADATA_DIRECTORY + sessionsHistory->getSessionByIndex(i)->getName();
-			std::ofstream ofs(clipboardMetadataFilepath);
-
-			clipboard = sessionsHistory->getSessionByIndex(i)->getClipboard();
-
-			for (int j = 0; j < clipboard->size(); j++)
-			{
-				ofs << clipboard->getDataByIndex(j) << std::endl;
-				ofs << delimiter << std::endl;
-			}
-
-			ofs.close();
-		}
-	}
-	static void readClipboardMetadata(SessionsHistory* sessionsHistory) {
-		Clipboard* clipboard;
-		std::string data, text, clipboardMetadataFilepath;
-		for (int i = 0; i < sessionsHistory->size(); i++)
-		{
-			clipboardMetadataFilepath = CLIPBOARD_METADATA_DIRECTORY + sessionsHistory->getSessionByIndex(i)->getName();
-			std::ifstream ifs(clipboardMetadataFilepath);
-
-			clipboard = sessionsHistory->getSessionByIndex(i)->getClipboard();
-			while (getline(ifs, data))
-			{
-				if (data == "---")
-				{
-					text = text.substr(0, text.size() - 1);
-					clipboard->addData(text);
-					text = "";
-				}
-				else
-					text += data + "\n";
-			}
-
-			ifs.close();
-		}
-	}
-
 public:
 
 	static std::string getSessionsDirectory() { return SESSIONS_DIRECTORY; }
@@ -599,20 +538,14 @@ FilesManager::AVAILABLE_SESSIONS_FILE = "Available_Sessions.txt",
 FilesManager::AVAILABLE_SESSIONS_FULLPATH = METADATA_DIRECTORY + AVAILABLE_SESSIONS_FILE,
 FilesManager::SESSIONS_DIRECTORY = "Sessions\\";
 
-void Editor::tryToLoadSessions() {
-	FilesManager::readSessionsMetadata(sessionsHistory, this);
-	FilesManager::readClipboardMetadata(sessionsHistory);
-}
-void Editor::tryToUnloadSessions() {
-	FilesManager::writeClipboardMetadata(sessionsHistory);
-	FilesManager::writeSessionsMetadata(sessionsHistory);
-}
+void Editor::tryToLoadSessions() { FilesManager::readSessionsMetadata(sessionsHistory, this); }
+void Editor::tryToUnloadSessions() { FilesManager::writeSessionsMetadata(sessionsHistory); }
 
 Editor::Editor() { this->sessionsHistory = new SessionsHistory(); }
 
 void Editor::copy(std::string textToProcess, int startPosition, int endPosition) {
 	std::string dataToCopy = textToProcess.substr(startPosition, endPosition - startPosition + 1);
-	currentSession->getClipboard()->addData(dataToCopy);
+	currentSession->addDataToClipboard(dataToCopy);
 }
 void Editor::paste(std::string* textToProcess, int startPosition, int endPosition, std::string textToPaste) {
 	if (startPosition == endPosition)
@@ -868,15 +801,14 @@ private:
 		return text;
 	}
 	std::string getTextFromClipboard() {
-		auto clipboard = editor->currentSession->getClipboard();
-		if (clipboard->isEmpty()) {
+		if (editor->currentSession->isClipboardEmpty()) {
 			std::cout << "\nПомилка: в буфері обміну ще немає даних!\n\n";
 			return "";
 		}
 
-		int choice;
+		int choice, sizeOfClipboard = editor->currentSession->sizeOfClipboard();
 
-		clipboard->printClipboard();
+		editor->currentSession->printClipboard();
 		getTextFromClipboardMenu(choice);
 
 		switch (choice)
@@ -886,13 +818,13 @@ private:
 			system("pause");
 			return "";
 		case 1:
-			return clipboard->getDataByIndex(clipboard->size() - 1);
+			return editor->currentSession->getDataFromClipboardByIndex(sizeOfClipboard - 1);
 		case 2:
-			return clipboard->getDataByIndex(0);
+			return editor->currentSession->getDataFromClipboardByIndex(0);
 		case 3:
-			choice = enterNumberInRange("Введіть номер даних: ", 1, clipboard->size());
+			choice = enterNumberInRange("Введіть номер даних: ", 1, sizeOfClipboard);
 			if(choice != -1)
-				return clipboard->getDataByIndex(choice - 1);
+				return editor->currentSession->getDataFromClipboardByIndex(choice - 1);
 			return "";
 		default:
 			return "";
