@@ -73,20 +73,13 @@ public:
 	}
 
 	std::string getTextToProcess() { return textToProcess; }
-	std::string getTextToPaste() { return textToPaste;	}
-	int getStartPosition() { return startPosition; }
-	int getEndPosition() { return endPosition; }
-
 	void setTextToProcess(std::string textToProcess) { this->textToProcess = textToProcess; }
-	void setTextToPaste(std::string textToPaste) { this->textToPaste = textToPaste; }
-	void setStartPosition(int startPosition) { this->startPosition = startPosition; }
-	void setEndPosition(int endPosition) { this->endPosition = endPosition; }
 	void setPreviousCommand(Command* previousCommand) { this->previousCommand = previousCommand; }
 };
 
 class Session {
 private:
-	std::stack<Command*, std::vector<Command*>> commandsHistory; //історія команд
+	std::stack<Command*> commandsHistory; //історія команд
 	std::stack<std::string> clipboard; //буфер обміну
 	int currentCommandIndexInHistory; //індекс на команді, на якій знаходиться користувач, бо, можливо, він скасував декілька команд або повторив,
 									  //і це потрібно відслідковвувати
@@ -104,14 +97,15 @@ public:
 	}
 
 	void addCommandAsLast(Command* command) { commandsHistory.push(command); }
+	void addDataToClipboard(std::string data) { clipboard.push(data); }
 	void deleteLastCommand() {
 		delete commandsHistory.top();
 		commandsHistory.pop();
 	}
 
 	int sizeOfCommandsHistory() { return commandsHistory.size(); }
+	int sizeOfClipboard() { return clipboard.size(); }
 
-	std::string getName() { return name; }
 	bool setName(std::string filename) {
 		std::string forbiddenCharacters = "/\\\":?*|<>";
 
@@ -126,26 +120,22 @@ public:
 		this->currentCommandIndexInHistory = currentCommandIndexInHistory;
 	}
 
+	std::string getName() { return name; }
 	Command* getCommandByIndex(int index) { return commandsHistory._Get_container()[index]; }
 	int getCurIndexInCommHistory() { return currentCommandIndexInHistory; }
-
-	void addDataToClipboard(std::string data) { clipboard.push(data); }
 	std::string getDataFromClipboardByIndex(int index) { return clipboard._Get_container()[index]; }
-
-	int sizeOfClipboard() { return clipboard.size(); }
-	bool isClipboardEmpty() { return clipboard.size() == 0; }
 
 	void printClipboard() {
 		system("cls");
 		for (int i = 0; i < clipboard.size(); i++)
-			std::cout << "\n" << i + 1 << ") \"" << getDataFromClipboardByIndex(i) << "\"";
+			std::cout << "\n" << i + 1 << ") \"" << clipboard._Get_container()[i] << "\"";
 		std::cout << std::endl;
 	}
 };
 
 class SessionsHistory {
 private:
-	std::stack<Session*, std::vector<Session*>> sessions; //історія сеансів
+	std::stack<Session*> sessions; //історія сеансів
 
 public:
 	~SessionsHistory() {
@@ -173,16 +163,45 @@ public:
 
 		std::string filename = ptrOnRetiringSession->getName();
 
-		std::vector<Session*> notRetiringElements;
+		std::deque<Session*> notRetiringElements;
 
 		remove_copy(ptrOnUnderlyingContainer->begin(), 
 					ptrOnUnderlyingContainer->end(),
 					back_inserter(notRetiringElements), 
 					ptrOnRetiringSession);
 
-		sessions = std::stack<Session*, std::vector<Session*>>(notRetiringElements);
+		sessions = std::stack<Session*>(notRetiringElements);
 
 		delete ptrOnRetiringSession;
+
+		return filename;
+	}
+	std::string deleteSessionByName(std::string name) {
+		auto sessionToDelete = getSessionByName(name);
+		if (!sessionToDelete)
+			return "";
+
+		Session* topSession;
+		std::string filename = sessionToDelete->getName();
+		std::stack<Session*> tempStack;
+
+
+		while (!sessions.empty()) {
+			topSession = sessions.top();
+			sessions.pop();
+
+			if (topSession->getName() == name) {
+				delete topSession;
+				continue;
+			}
+
+			tempStack.push(topSession);
+		}
+
+		while (!tempStack.empty()) {
+			sessions.push(tempStack.top());
+			tempStack.pop();
+		}
 
 		return filename;
 	}
@@ -198,7 +217,7 @@ public:
 	}
 
 	void sortByName() {
-		std::vector<Session*> tempSessions;
+		std::deque<Session*> tempSessions;
 
 		while (!sessions.empty()) {
 			tempSessions.push_back(sessions.top());
@@ -207,7 +226,7 @@ public:
 
 		std::sort(tempSessions.begin(), tempSessions.end(), [](Session* a, Session* b) {
 			return a->getName() < b->getName();
-			});
+		});
 
 		for (Session* session : tempSessions) 
 			sessions.push(session);
@@ -279,11 +298,7 @@ private:
 	friend class Editor;
 
 	static const std::string METADATA_DIRECTORY, //директорія папки метаданих
-		SESSIONS_METADATA_DIRECTORY, //директорія для метаданих сеаснів - назва, команди і т п
-		CLIPBOARD_METADATA_DIRECTORY, //директорія для зберігання буферів обмінів сеансів
-		AVAILABLE_SESSIONS_FILE, //текстовий файл, на якому зберігаються взагалі вже існуюючі сеанси
-		AVAILABLE_SESSIONS_FULLPATH, //METADATA_DIRECTORY + AVAILABLE_SESSIONS_FULLPATH
-		SESSIONS_DIRECTORY; //директорія, де безпосередньо збергаються текстові файли, які ми редагуємо в програмі
+		DATA_DIRECTORY; //директорія, де безпосередньо збергаються текстові файли, які ми редагуємо в програмі
 
 	static std::stack<std::string> getFilepathsForMetadata(std::string directory) {
 		std::stack<std::string> filesFromMetadataDirectory;
@@ -318,58 +333,38 @@ private:
 
 		std::stack<std::string> filesFromMetadataDirectory = getFilepathsForMetadata(directory);
 		std::string sessionFilepath;
+		bool isPartOfRealtimeSessions;
 
-		if (sessionsHistory->isEmpty()) {
-			while (!filesFromMetadataDirectory.empty()) {
-				remove(filesFromMetadataDirectory.top().c_str());
-				filesFromMetadataDirectory.pop();
-			}
-		}
-		else {
-			bool isPartOfRealtimeSessions;
-
-			for (int i = 0; i < filesFromMetadataDirectory.size(); i++)
+		for (int i = 0; i < filesFromMetadataDirectory.size(); i++)
+		{
+			isPartOfRealtimeSessions = false;
+			for (int j = 0; j < sessionsHistory->size(); j++)
 			{
-				isPartOfRealtimeSessions = false;
-				for (int j = 0; j < sessionsHistory->size(); j++)
-				{
-					sessionFilepath = directory + sessionsHistory->getSessionByIndex(j)->getName();
-					if (filesFromMetadataDirectory._Get_container()[i] == sessionFilepath)
-						isPartOfRealtimeSessions = true;
-				}
-
-				if (!isPartOfRealtimeSessions)
-					remove(filesFromMetadataDirectory._Get_container()[i].c_str());
+				sessionFilepath = directory + sessionsHistory->getSessionByIndex(j)->getName();
+				if (filesFromMetadataDirectory._Get_container()[i] == sessionFilepath)
+					isPartOfRealtimeSessions = true;
 			}
+
+			if (!isPartOfRealtimeSessions)
+				remove(filesFromMetadataDirectory._Get_container()[i].c_str());
 		}
+		
 	}
 
 	static void writeSessionsMetadata(SessionsHistory* sessionsHistory) {
-		deleteMetadataForDeletedSessions(sessionsHistory, SESSIONS_METADATA_DIRECTORY);
+		deleteMetadataForDeletedSessions(sessionsHistory, METADATA_DIRECTORY);
 
-		if (!std::filesystem::exists(SESSIONS_METADATA_DIRECTORY))
-			std::filesystem::create_directories(SESSIONS_METADATA_DIRECTORY);
+		if (!std::filesystem::exists(METADATA_DIRECTORY))
+			std::filesystem::create_directories(METADATA_DIRECTORY);
 
 		for (int i = 0; i < sessionsHistory->size(); i++)
 			writeSessionMetadata(sessionsHistory, i);
 	}
 	static void writeSessionMetadata(SessionsHistory* sessionsHistory, int index) {
-		Session* session;
+		Session* session = sessionsHistory->getSessionByIndex(index);
 
-		session = sessionsHistory->getSessionByIndex(index);
+		std::ofstream ofs_session(METADATA_DIRECTORY + session->getName());
 
-		std::ofstream ofs_aval_session;
-		if(index == 0)
-			ofs_aval_session.open(AVAILABLE_SESSIONS_FULLPATH);
-		else
-			ofs_aval_session.open(AVAILABLE_SESSIONS_FULLPATH, std::ios_base::app);
-
-		ofs_aval_session << session->getName() << std::endl;
-		ofs_aval_session.close();
-
-		std::ofstream ofs_session(SESSIONS_METADATA_DIRECTORY + session->getName());
-
-		ofs_session << session->getName() << std::endl;
 		ofs_session << session->sizeOfCommandsHistory() << std::endl;
 		ofs_session << session->getCurIndexInCommHistory() << std::endl;
 
@@ -379,68 +374,41 @@ private:
 		ofs_session.close();
 	}
 	static void writeCommandMetadata(std::ofstream* ofs_session, Session* session, int index) {
-		std::string typeOfCommand, nameOfCommandClass, delimiter = "---";
-		Command* command;
-
-		command = session->getCommandByIndex(index);
+		std::string typeOfCommand, nameOfCommandClass, delimiter = "---\n";
+		Command* command = session->getCommandByIndex(index);
 
 		nameOfCommandClass = std::string(typeid(*command).name());
 
 		if (nameOfCommandClass == "class PasteCommand")
-			typeOfCommand = "PasteCommand\n";
+			typeOfCommand = "PasteCommand";
 		else if (nameOfCommandClass == "class CutCommand")
-			typeOfCommand = "CutCommand\n";
+			typeOfCommand = "CutCommand";
 		else
-			typeOfCommand = "DeleteCommand\n";
+			typeOfCommand = "DeleteCommand";
 
-		*ofs_session << typeOfCommand;
-
-		*ofs_session << delimiter << std::endl;
+		*ofs_session << typeOfCommand << std::endl << delimiter;
 
 		if (command->getTextToProcess() != "")
 			*ofs_session << command->getTextToProcess() << std::endl;
 
-		*ofs_session << delimiter << std::endl;
-
-		if (typeOfCommand == "PasteCommand\n")
-		{
-			*ofs_session << delimiter << std::endl;
-
-			if (command->getTextToPaste() != "")
-				*ofs_session << command->getTextToPaste() << std::endl;
-
-			*ofs_session << delimiter << std::endl;
-		}
-
-		*ofs_session << command->getStartPosition() << std::endl;
-
-		*ofs_session << command->getEndPosition() << std::endl;
+		*ofs_session << delimiter;
 	}
 
 	static void readSessionsMetadata(SessionsHistory* sessionsHistory, Editor* editor) {
 		std::stack<std::string> available_sessions;
 		std::string line;
 
-		std::ifstream ifs_available_sessions(AVAILABLE_SESSIONS_FULLPATH);
-		if (!ifs_available_sessions) return;
-		
-		while (getline(ifs_available_sessions, line))
-			available_sessions.push(line);
-
-		ifs_available_sessions.close();
+		available_sessions = getFilepathsForMetadata(METADATA_DIRECTORY);
 
 		for (int i = 0; i < available_sessions.size(); i++)
 			readSessionMetadata(sessionsHistory, editor, available_sessions._Get_container()[i]);
 	}
 	static void readSessionMetadata(SessionsHistory* sessionsHistory, Editor* editor, std::string sessionFilename) {
 		std::string line;
-		Session* session;
+		Session* session = new Session(sessionFilename);
 		int countOfCommands;
 
-		std::ifstream ifs_session(SESSIONS_METADATA_DIRECTORY + sessionFilename);
-
-		getline(ifs_session, line);
-		session = new Session(line);
+		std::ifstream ifs_session(METADATA_DIRECTORY + sessionFilename);
 
 		getline(ifs_session, line);
 		countOfCommands = stoi(line);
@@ -476,26 +444,15 @@ private:
 		text = readDataByDelimiter(ifs_session, "---");
 		command->setTextToProcess(text);
 
-		if (typeOfCommand == "PasteCommand")
-		{
-			text = readDataByDelimiter(ifs_session, "---");
-			command->setTextToPaste(text);
-		}
-
-		getline(*ifs_session, text);
-		command->setStartPosition(stoi(text));
-
-		getline(*ifs_session, text);
-		command->setEndPosition(stoi(text));
-
 		session->addCommandAsLast(command);
 	}
 
 public:
+	static std::string getSessionsDirectory() {
+		return DATA_DIRECTORY;
+	}
 
-	static std::string getSessionsDirectory() { return SESSIONS_DIRECTORY; }
-
-	static std::string readFullDataFromFile(std::string fullFilepath) {
+	static std::string readSessionData(std::string fullFilepath) {
 		std::string text, line;
 
 		std::ifstream file(fullFilepath);
@@ -515,8 +472,8 @@ public:
 		return text;
 	}
 
-	static bool overwriteDataInExistingFile(std::string fullFilepath, std::string newData) {
-		std::ofstream file(fullFilepath);
+	static bool writeSessionData(std::string filename, std::string newData) {
+		std::ofstream file(METADATA_DIRECTORY + filename);
 
 		if (!file.is_open())
 			return false;
@@ -532,11 +489,7 @@ public:
 };
 
 const std::string FilesManager::METADATA_DIRECTORY = "Metadata\\",
-FilesManager::SESSIONS_METADATA_DIRECTORY = METADATA_DIRECTORY  + "Sessions\\",
-FilesManager::CLIPBOARD_METADATA_DIRECTORY = METADATA_DIRECTORY  + "Clipboard\\",
-FilesManager::AVAILABLE_SESSIONS_FILE = "Available_Sessions.txt",
-FilesManager::AVAILABLE_SESSIONS_FULLPATH = METADATA_DIRECTORY + AVAILABLE_SESSIONS_FILE,
-FilesManager::SESSIONS_DIRECTORY = "Sessions\\";
+FilesManager::DATA_DIRECTORY = "Sessions\\";
 
 void Editor::tryToLoadSessions() { FilesManager::readSessionsMetadata(sessionsHistory, this); }
 void Editor::tryToUnloadSessions() { FilesManager::writeSessionsMetadata(sessionsHistory); }
@@ -625,8 +578,13 @@ Command* RedoCommand::copy() { return nullptr; }
 
 class CommandsManager {
 private:
-	std::map<std::string, Command*> manager; //зберігач усіх команд, дозволяє зручно їми керувати за допомогою поліморфізму
+	std::stack<std::pair<std::string, Command*>> manager; //зберігач усіх команд, дозволяє зручно їми керувати за допомогою поліморфізму
 
+	Command* getCommandFromManagerByKey(std::string typeOfCommand) {
+		for (int i = 0; i < manager.size(); i++)
+			if (manager._Get_container()[i].first == typeOfCommand)
+				return manager._Get_container()[i].second;
+	}
 	bool isNotUndoOrRedoCommand(std::string typeOfCommand) { return typeOfCommand != "Undo" && typeOfCommand != "Redo"; }
 	void setParametersForCommand(std::string typeOfCommand, int startPosition, int endPosition, std::string textToPaste) {
 		Command* commandToUndoOrRedo = nullptr, * previousCommand = nullptr;
@@ -640,7 +598,9 @@ private:
 		if (Editor::getCurrentSession()->getCurIndexInCommHistory() != -1 && isNotUndoOrRedoCommand(typeOfCommand))
 			previousCommand = Editor::getCurrentSession()->getCommandByIndex(Editor::getCurrentSession()->sizeOfCommandsHistory() - 1);
 
-		manager[typeOfCommand]->setParameters(typeOfCommand, previousCommand, commandToUndoOrRedo, startPosition, endPosition, textToPaste);
+		
+
+		getCommandFromManagerByKey(typeOfCommand)->setParameters(typeOfCommand, previousCommand, commandToUndoOrRedo, startPosition, endPosition, textToPaste);
 	}
 	int getCountOfForwardCommands() {
 		return Editor::getCurrentSession()->sizeOfCommandsHistory() - 1 - Editor::getCurrentSession()->getCurIndexInCommHistory();
@@ -655,16 +615,19 @@ private:
 
 public:
 	CommandsManager(Editor* editor) {
-		manager["Copy"] = new CopyCommand(editor);
-		manager["Paste"] = new PasteCommand(editor);
-		manager["Cut"] = new CutCommand(editor);
-		manager["Delete"] = new DeleteCommand(editor);
-		manager["Undo"] = new UndoCommand();
-		manager["Redo"] = new RedoCommand();
+		manager.push(std::pair("Copy", new CopyCommand(editor)));
+		manager.push(std::pair("Paste", new PasteCommand(editor)));
+		manager.push(std::pair("Cut", new CutCommand(editor)));
+		manager.push(std::pair("Delete", new DeleteCommand(editor)));
+		manager.push(std::pair("Undo", new UndoCommand()));
+		manager.push(std::pair("Redo", new RedoCommand()));
 	}
 	~CommandsManager() {
-		for (auto& pair : manager) { delete (pair.second); }
-		manager.clear();
+		while (!manager.empty())
+		{
+			delete manager.top().second;
+			manager.pop();
+		}
 	}
 
 	bool isThereAnyCommandForward() {
@@ -676,10 +639,10 @@ public:
 		deleteForwardCommandsIfNecessary(typeOfCommand);
 		setParametersForCommand(typeOfCommand, startPosition, endPosition, textToPaste);
 
-		manager[typeOfCommand]->execute();
+		getCommandFromManagerByKey(typeOfCommand)->execute();
 
 		if (isNotUndoOrRedoCommand(typeOfCommand) && typeOfCommand != "Copy")
-			Editor::getCurrentSession()->addCommandAsLast(manager[typeOfCommand]->copy());
+			Editor::getCurrentSession()->addCommandAsLast(getCommandFromManagerByKey(typeOfCommand)->copy());
 
 		if(typeOfCommand == "Undo")
 			Editor::getCurrentSession()->setCurIndexInCommHistory(Editor::getCurrentSession()->getCurIndexInCommHistory() - 1);
@@ -706,7 +669,7 @@ private:
 
 		return firstOption <= convertedValue && convertedValue <= lastOption;
 	}
-	int enterNumberInRange(std::string message, int firstOption, int lastOption, std::string error = "були введені зайві символи або число, яке виходить за межі набору цифр наданих варіантів!") {
+	int enterNumberInRange(std::string message, int firstOption, int lastOption) {
 		bool isOptionVerified = false;
 		std::string option;
 
@@ -716,16 +679,14 @@ private:
 		isOptionVerified = validateEnteredNumber(option, firstOption, lastOption);
 
 		if (!isOptionVerified)
-			std::cout << "\n" << error << "\n\n";
+			std::cout << "\nПомилка: були введені зайві символи або число, яке виходить за межі набору цифр наданих варіантів!\n\n";
 
 		return isOptionVerified? stoi(option) : -1;
 	}
 	void readDataFromFile() {
-		editor->currentText = new std::string(FilesManager::readFullDataFromFile(FilesManager::getSessionsDirectory() + editor->currentSession->getName()));
-	}
-	void startMakeActionsOnContentMenu(std::function<void()> makeActionsOnContentMenu, int index = 0) {
-		if (index != -1 && makeActionsOnContentMenu)
-			makeActionsOnContentMenu();
+		std::string filepath = FilesManager::getSessionsDirectory() + editor->currentSession->getName();
+		std::string textFromFile = FilesManager::readSessionData(filepath);
+		editor->currentText = new std::string(textFromFile);
 	}
 
 	void templateForMenusAboutSessions(int& choice, std::string action) {
@@ -734,13 +695,13 @@ private:
 		std::cout << "1. Останній\n";
 		std::cout << "2. Найперший\n";
 		std::cout << "3. За позицією\n";
-		std::cout << "4. Відсортувати сеанси за іменем\n";
-		std::cout << "5. Отримати за іменем\n";
+		std::cout << "4. За іменем\n";
+		std::cout << "5. Відсортувати сеанси за іменем\n";
 		choice = enterNumberInRange("Ваш вибір: ", 0, 5);
 	}
-	void templateForExecutingMenusAboutSessions(std::function<void(int&)> mainFunc, std::function<void(int&)> menu, std::function<void()> additionalFunc = nullptr) {
+	void templateForExecutingMenusAboutSessions(std::function<void(int&)> mainFunc, std::function<void(int&)> menu, std::function<bool()> actionFuncByName, std::function<void()> additionalFunc = nullptr) {
 		int choice, index = -1;
-		bool wasSessionFound = false;
+		bool isActionSuccessfull = false;
 
 		do
 		{
@@ -763,26 +724,27 @@ private:
 					case 3:
 						index = choice == 1 ? editor->sessionsHistory->size() : choice == 2 ? 1 : -1;
 						mainFunc(index);
-						startMakeActionsOnContentMenu(additionalFunc, index);
+						if (index != -1 && additionalFunc)
+							additionalFunc();
 						continue;
 					case 4:
-						editor->sessionsHistory->sortByName();
+						isActionSuccessfull = actionFuncByName();
+						if(isActionSuccessfull && additionalFunc)
+							additionalFunc();
 						continue;
 					case 5:
-						wasSessionFound = setCurrentSessionByName();
-						if(wasSessionFound)
-							startMakeActionsOnContentMenu(additionalFunc);
+						editor->sessionsHistory->sortByName();
 					}
 				}
 			}
 		} while (true);
 	}
 
-	std::string getTextUsingKeyboard() {
+	std::string getTextUsingKeyboard(std::string msg = "Введіть текст") {
 		std::string line, text;
 		int countOfLines = 0;
 
-		std::cout << "\nВведіть текст (зупинити - з наступного рядка введіть -1):\n";
+		std::cout << "\n" << msg << "(зупинити - з наступного рядка введіть - 1): \n";
 		while (getline(std::cin, line)) {
 			if (line == "-1")
 				break;
@@ -801,7 +763,7 @@ private:
 		return text;
 	}
 	std::string getTextFromClipboard() {
-		if (editor->currentSession->isClipboardEmpty()) {
+		if (editor->currentSession->sizeOfClipboard() == 0) {
 			std::cout << "\nПомилка: в буфері обміну ще немає даних!\n\n";
 			return "";
 		}
@@ -831,97 +793,33 @@ private:
 		}
 	}
 
-	void pasteText(int startIndex, int endIndex, std::string textToPaste) {
-		commandsManager->invokeCommand("Paste", startIndex, endIndex, textToPaste);
-		std::cout << "\nУспіх: дані були успішно додані в файл!\n\n";
-	}
-	void pasteTextInBeginningOrEnd(int choice, std::string textToPaste) {
-		if (editor->currentText->size() == 0 || choice == 2)
-			pasteText(0, 0, textToPaste);
-		else if (choice == 1 && editor->currentText->size() != 0)
-			pasteText(editor->currentText->size() - 1, editor->currentText->size() - 1, textToPaste);
-	}
-	int pasteTextByIndex(std::string textToPaste) {
-		int startOfRange = 0, endOfRange = 0;
-		if (editor->currentText->size() > 0)
-			endOfRange = editor->currentText->size() - 1;
+	bool makeActionOnContextByEnteredText(std::string typeOfCommand, std::string actionInPast, size_t startIndex = -1, size_t endIndex = -1) {
+		if(startIndex != -1 && endIndex != -1){
+			std::string textForAction;
 
-		int index = enterNumberInRange("Введіть індекс, за яким будете вставляти текст: ", startOfRange, endOfRange);
+			textForAction = getTextUsingKeyboard("Введіть текст, над яким бажаєте зробити цю дію");
 
-		if (index == -1)
-			return index;
+			if (textForAction.empty()) {
+				std::cout << "\nПомилка: текст не був введений!\n\n";
+				return false;
+			}
 
-		commandsManager->invokeCommand("Paste", index, index, textToPaste);
+			startIndex = editor->currentText->find(textForAction);
 
-		return index;
-	}
-	int pasteTextFromIndexToIndex(std::string textToPaste) {
-		int startOfRange = 0, endOfRange = 0;
-		if (editor->currentText->size() > 0)
-			endOfRange = editor->currentText->size() - 1;
+			if (startIndex == std::string::npos) {
+				std::cout << "\nПомилка: текст не був знайдений!\n\n";
+				return false;
+			}
 
-		int startIndex = enterNumberInRange("Початковий індекс (нумерація символів - з 0): ", startOfRange, endOfRange, "був введений індекс, який виходить за межі тексту!");
-		if (startIndex == -1) return -1;
-
-		int endIndex = enterNumberInRange("Кінцевий індекс (нумерація символів - з 0): ", startOfRange, endOfRange, "був введений індекс, який виходить за межі тексту!");
-		if (endIndex == -1) return -1;
-
-		commandsManager->invokeCommand("Paste", startIndex, endIndex, textToPaste);
-
-		return endIndex;
-	}
-
-	bool delCopyOrCutWholeText(std::string typeOfCommand, std::string actionInPast) {
-		commandsManager->invokeCommand(typeOfCommand, 0, editor->currentText->size() - 1);
-		std::cout << "\nУспіх: дані були успішно " + actionInPast + "!\n\n";
-		return true;
-	}
-	bool delCopyOrCutFromIndexToIndex(std::string typeOfCommand, std::string actionInPast) {
-		int startIndex, endIndex;
-
-		startIndex = enterNumberInRange("Початковий індекс (нумерація символів - з 0): ", 0, editor->currentText->size() - 1, "був введений індекс, який виходить за межі тексту!");
-		if (startIndex == -1) return false;
-
-		endIndex = enterNumberInRange("Кінцевий індекс (нумерація символів - з 0): ", 0, editor->currentText->size() - 1, "був введений індекс, який виходить за межі тексту!");
-		if (endIndex == -1) return false;
+			if (textForAction.size() == 1)
+				endIndex = startIndex;
+			else
+				endIndex = startIndex + textForAction.size() - 1;
+		}
 
 		commandsManager->invokeCommand(typeOfCommand, startIndex, endIndex);
 		std::cout << "\nУспіх: дані були успішно " + actionInPast + "!\n\n";
 		return true;
-	}
-	bool delCopyOrCutText(std::string typeOfCommand, std::string actionForMenu, std::string actionInPast) {
-		int choice;
-
-		editor->printCurrentText();
-		delCopyOrCutTextMenu(choice, actionForMenu);
-
-		switch (choice)
-		{
-		case 0:
-			std::cout << "\nПовернення до Меню дій над змістом.\n\n";
-			system("pause");
-			return false;
-		case 1:
-			return delCopyOrCutWholeText(typeOfCommand, actionInPast);
-		case 2:
-			return delCopyOrCutFromIndexToIndex(typeOfCommand, actionInPast);
-		}
-	}
-	bool chooseRootDelCopyOrCut(std::string action) {
-		if (editor->currentText->size() == 0)
-		{
-			std::cout << "\nПомилка: немає тексту, який можна було б " + action + "!\n\n";
-			return false;
-		}
-		else
-		{
-			if (action == "видалити")
-				return delCopyOrCutText("Delete", action, "видалені");
-			else if (action == "скопіювати")
-				return delCopyOrCutText("Copy", action, "скопійовані");
-			else
-				return delCopyOrCutText("Cut", action, "вирізані");
-		}
 	}
 
 	bool undoAction() {
@@ -967,15 +865,14 @@ private:
 		std::cout << "0. Вийти в Меню дій над змістом\n";
 		std::cout << "1. В кінець\n";
 		std::cout << "2. На початок\n";
-		std::cout << "3. За індексом\n";
-		std::cout << "4. Замінивши певну частину в файлі\n";
-		choice = enterNumberInRange("Ваш вибір: ", 0, 4);
+		std::cout << "3. Ввести з клавіатури текст, який хочете замінити\n";
+		choice = enterNumberInRange("Ваш вибір: ", 0, 3);
 	}
 	void delCopyOrCutTextMenu(int& choice, std::string action) {
 		std::cout << "\nСкільки хочете " << action << ":\n";
 		std::cout << "0. Назад\n";
 		std::cout << "1. Весь зміст\n";
-		std::cout << "2. З певного по певний індекс\n";
+		std::cout << "2. Введу з клавіатури, що " << action << "\n";
 		choice = enterNumberInRange("Ваш вибір: ", 0, 2);
 	}
 	void makeActionsOnContentMenu(int& choice) {
@@ -989,76 +886,11 @@ private:
 		std::cout << "6. Повторити команду\n";
 		choice = enterNumberInRange("Ваш вибір: ", 0, 6);
 	}
-	void executeMakeActionsOnContentMenu() {
-		commandsManager = new CommandsManager(editor);
-		bool wasTextSuccessfullyChanged;
-		int choice;
-
-		readDataFromFile();
-
-		do
-		{
-			wasTextSuccessfullyChanged = false;
-			editor->printCurrentText();
-			makeActionsOnContentMenu(choice);
-
-			switch (choice)
-			{
-			case 0:
-				std::cout << "\nПовернення до Меню для отримання сеансу.\n\n";
-				system("pause");
-				delete (commandsManager);
-				return;
-			case 1:
-				wasTextSuccessfullyChanged = executeAddingTextToFile();
-				break;
-			case 2:
-				wasTextSuccessfullyChanged = chooseRootDelCopyOrCut("видалити");
-				break;
-			case 3:
-				wasTextSuccessfullyChanged = chooseRootDelCopyOrCut("скопіювати");
-				break;
-			case 4:
-				wasTextSuccessfullyChanged = chooseRootDelCopyOrCut("вирізати");
-				break;
-			case 5:
-				wasTextSuccessfullyChanged = undoAction(); //комманду копирования не отменяем и не повторяем! Только то, что влияет на сам текст!
-				break;
-			case 6:
-				wasTextSuccessfullyChanged = redoAction();
-			}
-			if(wasTextSuccessfullyChanged)
-				FilesManager::overwriteDataInExistingFile(FilesManager::getSessionsDirectory() + editor->currentSession->getName(), *(editor->currentText));
-		} while (true);
-	}
 	void printGettingSessionsMenu(int& choice) {
 		templateForMenusAboutSessions(choice, "отримати");
 	}
-	void executeGettingSessionsMenu() {
-		std::function<void(int&)> mainFunc = [this](int &index) {
-			setCurrentSessionByIndex(index);
-			};
-		std::function<void(int&)> menu = [this](int& choice) {
-			printGettingSessionsMenu(choice);
-			};
-		std::function<void()> additionalFunc = [this]() {
-			executeMakeActionsOnContentMenu();
-			};
-
-		templateForExecutingMenusAboutSessions(mainFunc, menu, additionalFunc);
-	}
 	void printDeletingSessionsMenu(int& choice) {
 		templateForMenusAboutSessions(choice, "видалити");
-	}
-	void executeDeletingSessionsMenu() {
-		std::function<void(int)> mainFunc = [this](int index) {
-			deleteSessionByIndex(index);
-			};
-		std::function<void(int&)> menu = [this](int& choice) {
-			printDeletingSessionsMenu(choice);
-			};
-
-		templateForExecutingMenusAboutSessions(mainFunc, menu);
 	}
 	void printManagingSessionsMenu(int& choice) {
 		system("cls");
@@ -1101,6 +933,7 @@ private:
 			return false;
 
 		int choice;
+		bool wasActionSuccessfull = false;
 		editor->printCurrentText();
 		wayToPasteTextMenu(choice);
 
@@ -1110,21 +943,121 @@ private:
 			system("pause");
 			return false;
 		case 1:
+			makeActionOnContextByEnteredText("Paste", "вставлені", editor->currentText->size() - 1, editor->currentText->size() - 1);
+			return true;
 		case 2:
-			pasteTextInBeginningOrEnd(choice, textToPaste);
+			makeActionOnContextByEnteredText("Paste", "вставлені", 0, 0);
 			return true;
 		case 3:
-			choice = pasteTextByIndex(textToPaste);
-			if(choice != -1)
-				return true;
-			return false;
-		case 4:
-			choice = pasteTextFromIndexToIndex(textToPaste);
-			if (choice != -1)
-				return true;
-			return false;
+			wasActionSuccessfull = makeActionOnContextByEnteredText("Paste", "вставлені");
+			return wasActionSuccessfull;
 		default:
 			return false;
+		}
+	}
+	void executeMakeActionsOnContentMenu() {
+		commandsManager = new CommandsManager(editor);
+		bool wasTextSuccessfullyChanged;
+		int choice;
+
+		readDataFromFile();
+
+		do
+		{
+			wasTextSuccessfullyChanged = false;
+			editor->printCurrentText();
+			makeActionsOnContentMenu(choice);
+
+			switch (choice)
+			{
+			case 0:
+				std::cout << "\nПовернення до Меню для отримання сеансу.\n\n";
+				system("pause");
+				delete (commandsManager);
+				return;
+			case 1:
+				wasTextSuccessfullyChanged = executeAddingTextToFile();
+				break;
+			case 2:
+				wasTextSuccessfullyChanged = chooseRootDelCopyOrCut("видалити");
+				break;
+			case 3:
+				wasTextSuccessfullyChanged = chooseRootDelCopyOrCut("скопіювати");
+				break;
+			case 4:
+				wasTextSuccessfullyChanged = chooseRootDelCopyOrCut("вирізати");
+				break;
+			case 5:
+				wasTextSuccessfullyChanged = undoAction(); //комманду копирования не отменяем и не повторяем! Только то, что влияет на сам текст!
+				break;
+			case 6:
+				wasTextSuccessfullyChanged = redoAction();
+			}
+			if(wasTextSuccessfullyChanged)
+				FilesManager::writeSessionData(FilesManager::getSessionsDirectory() + editor->currentSession->getName(), *(editor->currentText));
+		} while (true);
+	}
+	void executeDeletingSessionsMenu() {
+		std::function<void(int)> mainFunc = [this](int index) {
+			deleteSessionByIndex(index);
+			};
+		std::function<void(int&)> menu = [this](int& choice) {
+			printDeletingSessionsMenu(choice);
+			};
+		std::function<bool()> actionFuncByName = [this]() {
+			return deleteSessionByName();
+			};
+
+		templateForExecutingMenusAboutSessions(mainFunc, menu, actionFuncByName);
+	}
+	void executeGettingSessionsMenu() {
+		std::function<void(int&)> mainFunc = [this](int &index) {
+			setCurrentSessionByIndex(index);
+			};
+		std::function<void(int&)> menu = [this](int& choice) {
+			printGettingSessionsMenu(choice);
+			};
+		std::function<bool()> actionFuncByName = [this]() {
+			return setCurrentSessionByName();
+			};
+		std::function<void()> additionalFunc = [this]() {
+			executeMakeActionsOnContentMenu();
+			};
+
+		templateForExecutingMenusAboutSessions(mainFunc, menu, actionFuncByName, additionalFunc);
+	}
+	bool executeDelCopyOrCutText(std::string typeOfCommand, std::string actionForMenu, std::string actionInPast) {
+		int choice;
+
+		editor->printCurrentText();
+		delCopyOrCutTextMenu(choice, actionForMenu);
+
+		switch (choice)
+		{
+		case 0:
+			std::cout << "\nПовернення до Меню дій над змістом.\n\n";
+			system("pause");
+			return false;
+		case 1:
+			return makeActionOnContextByEnteredText(typeOfCommand, actionInPast, 0, editor->currentText->size() - 1);
+		case 2:
+			return makeActionOnContextByEnteredText(typeOfCommand, actionInPast);
+		}
+	}
+	bool chooseRootDelCopyOrCut(std::string action) {
+		if (editor->currentText->size() == 0)
+		{
+			std::cout << "\nПомилка: немає тексту, який можна було б " + action + "!\n\n";
+			return false;
+		}
+		else
+		{
+			if (action == "видалити")
+				return executeDelCopyOrCutText("Delete", action, "видалені");
+			else if (action == "скопіювати")
+				return executeDelCopyOrCutText("Copy", action, "скопійовані");
+			else
+				return executeDelCopyOrCutText("Cut", action, "вирізані");
 		}
 	}
 
@@ -1135,13 +1068,6 @@ private:
 				return false;
 		}
 		return true;
-	}
-	bool doesSessionWithThisNameExists(std::string name) {
-		for (int i = 0; i < editor->sessionsHistory->size(); i++)
-			if (editor->sessionsHistory->getSessionByIndex(i)->getName() == name + ".txt")
-				return true;
-
-		return false;
 	}
 	bool doesAnySessionExist() {
 		if (editor->sessionsHistory->isEmpty())
@@ -1158,7 +1084,7 @@ private:
 		Session* newSession = new Session();
 		if (newSession->setName(filename))
 		{
-			if (doesSessionWithThisNameExists(filename)) {
+			if (editor->sessionsHistory->getSessionByName(filename) == nullptr) {
 				delete newSession;
 				std::cout << "\nПомилка: сеанс з таким іменем вже існує!\n\n";
 				return;
@@ -1203,6 +1129,22 @@ private:
 			std::cout << "\nУспіх: сеанс був успішно видалений!\n\n";
 		}
 	}
+	bool deleteSessionByName() {
+		std::string name;
+		std::cout << "\nВведіть ім'я сеансу: ";
+		getline(std::cin, name);
+		auto filename = editor->sessionsHistory->deleteSessionByName(name);
+		if(filename.empty())
+		{
+			std::cout << "\nПомилка: сеанса з таким іменем не існує!\n\n";
+			return false;
+		}
+		std::string pathToSession = FilesManager::getSessionsDirectory() + filename;
+		remove(pathToSession.c_str());
+
+		std::cout << "\nУспіх: сеанс був успішно видалений!\n\n";
+		return true;
+	}
 
 	void printReferenceInfo() {
 		system("cls");
@@ -1212,27 +1154,8 @@ private:
 		std::cout << "Розробник: Бредун Денис Сергійович з групи ПЗ-21-1/9.\n\n";
 		system("pause");
 	}
-	void setConsoleFont(int sizeOfFont) {
-		CONSOLE_FONT_INFOEX cfi;
-		cfi.cbSize = sizeof(cfi);
-		cfi.dwFontSize.Y = sizeOfFont;
-		wcscpy_s(cfi.FaceName, L"Consolas");
-		SetCurrentConsoleFontEx(GetStdHandle(STD_OUTPUT_HANDLE), FALSE, &cfi);
-	}
-	void setConsoleFullScreenAndNonresized() {
-		HWND consoleWindow = GetConsoleWindow();
-		SetWindowLong(consoleWindow, GWL_STYLE, GetWindowLong(consoleWindow, GWL_STYLE) & ~WS_MAXIMIZEBOX & ~WS_SIZEBOX);
-
-		system("mode con COLS=700");
-		ShowWindow(consoleWindow, SW_MAXIMIZE);
-		SendMessage(consoleWindow, WM_SYSKEYDOWN, VK_RETURN, 0x20000000);
-	}
 public:
 
-	void setUp() {
-		setConsoleFullScreenAndNonresized();
-		setConsoleFont(22);
-	}
 	void executeMainMenu() {
 		int choice;
 		editor = new Editor();
@@ -1271,6 +1194,5 @@ int main()
 	SetConsoleOutputCP(1251);
 
 	Program program;
-	program.setUp();
 	program.executeMainMenu();
 }
