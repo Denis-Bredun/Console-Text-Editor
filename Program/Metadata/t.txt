@@ -1,0 +1,53 @@
+12
+11
+PasteCommand
+---
+Hello!
+---
+PasteCommand
+---
+Hello! Denis!
+---
+PasteCommand
+---
+How are you?Hello! Denis!
+---
+DeleteCommand
+---
+How are you?Hello! 
+---
+CutCommand
+---
+How are Hello! 
+---
+DeleteCommand
+---
+Howare you? 
+---
+DeleteCommand
+---
+Howareyou? 
+---
+DeleteCommand
+---
+Howareyou?
+---
+PasteCommand
+---
+Howareyou? how
+
+are you?
+---
+DeleteCommand
+---
+Howareyou?
+are you?
+---
+DeleteCommand
+---
+Howareyou you?
+---
+PasteCommand
+---
+Howareyou you?Hi
+---

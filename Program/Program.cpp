@@ -2,7 +2,6 @@
 #include <fstream>
 #include <filesystem>
 #include <stack>
-#include <map>
 #include <functional>
 #include <windows.h>
 
@@ -48,8 +47,8 @@ protected:
 	Editor* editor; //редактор, в якому відбувається редагування тексту за допомогою команд
 	int startPosition, endPosition; //початкова та кінцева позиції для вставки, заміни, видалення, копіювання, вирізання
 	std::string textToProcess, textToPaste; //поля для тексту, який обробляємо і для тексту, який вставляємо 
-	Command* previousCommand, *commandToUndoOrRedo; //вказівник на попередню команду (в історії команд щось по типу однонапрямленого списка),
-													//далі - вказівник на команду, яку збираємось скасувати або повторити
+	Command* previousCommand, * commandToUndoOrRedo; //вказівник на попередню команду (в історії команд щось по типу однонапрямленого списка),
+	//далі - вказівник на команду, яку збираємось скасувати або повторити
 
 public:
 	virtual void execute() = 0;
@@ -90,7 +89,7 @@ private:
 	std::stack<Command*> commandsHistory; //історія команд
 	std::stack<std::string> clipboard; //буфер обміну
 	int currentCommandIndexInHistory; //індекс на команді, на якій знаходиться користувач, бо, можливо, він скасував декілька команд або повторив,
-									  //і це потрібно відслідковвувати
+	//і це потрібно відслідковвувати
 	std::string name; //ім'я сеансу
 
 public:
@@ -173,10 +172,10 @@ public:
 
 		std::deque<Session*> notRetiringElements;
 
-		remove_copy(ptrOnUnderlyingContainer->begin(), 
-					ptrOnUnderlyingContainer->end(),
-					back_inserter(notRetiringElements), 
-					ptrOnRetiringSession);
+		remove_copy(ptrOnUnderlyingContainer->begin(),
+			ptrOnUnderlyingContainer->end(),
+			back_inserter(notRetiringElements),
+			ptrOnRetiringSession);
 
 		sessions = std::stack<Session*>(notRetiringElements);
 
@@ -234,9 +233,9 @@ public:
 
 		std::sort(tempSessions.begin(), tempSessions.end(), [](Session* a, Session* b) {
 			return a->getName() < b->getName();
-		});
+			});
 
-		for (Session* session : tempSessions) 
+		for (Session* session : tempSessions)
 			sessions.push(session);
 	}
 };
@@ -627,11 +626,9 @@ private:
 		return Editor::getCurrentSession()->sizeOfCommandsHistory() - 1 - Editor::getCurrentSession()->getCurIndexInCommHistory();
 	}
 	void deleteForwardCommandsIfNecessary(std::string typeOfCommand) {
-		if (typeOfCommand != "Undo" && typeOfCommand != "Redo")
-			if (isThereAnyCommandForward()) {
-				for (int i = 1; i <= getCountOfForwardCommands(); i++)
-					Editor::getCurrentSession()->deleteLastCommand();
-			}
+		if (typeOfCommand != "Undo" && typeOfCommand != "Redo" && isThereAnyCommandForward())
+			for (int i = 0; i <= getCountOfForwardCommands(); i++)
+				Editor::getCurrentSession()->deleteLastCommand();
 	}
 
 public:
@@ -675,6 +672,58 @@ public:
 
 Editor* editor; //редактор
 CommandsManager* commandsManager; //менеджер команд, за допомогою якого й викликаються усі команди
+
+bool validateEnteredNumber(std::string option, short firstOption, short lastOption);
+int enterNumberInRange(std::string message, int firstOption, int lastOption);
+void readDataFromFile();
+void pauseAndCleanConsole();
+void printNotification(std::string type, std::string msg);
+void successNotification(std::string msg);
+void errorNotification(std::string msg);
+
+void templateForMenusAboutSessions(int& choice, std::string action);
+void templateForExecutingMenusAboutSessions(std::function<void(int&)> mainFunc, std::function<void(int&)> menu,
+	std::function<bool()> actionFuncByName, std::function<void()> additionalFunc);
+
+std::string getTextUsingKeyboard();
+std::string getTextFromClipboard();
+
+bool makeActionOnContextByEnteredText(std::string typeOfCommand, std::string actionInPast,
+	std::string textToPaste, size_t startIndex, size_t endIndex);
+
+bool undoAction();
+bool redoAction();
+
+void sortSessions();
+
+void wayToGetTextForAddingMenu(int& choice);
+void getTextFromClipboardMenu(int& choice);
+void wayToPasteTextMenu(int& choice);
+void delCopyOrCutTextMenu(int& choice, std::string action);
+void makeActionsOnContentMenu(int& choice);
+void printGettingSessionsMenu(int& choice);
+void printDeletingSessionsMenu(int& choice);
+void printManagingSessionsMenu(int& choice);
+
+std::string executeGettingTextForAdding();
+bool executeAddingTextToFile();
+void executeMakeActionsOnContentMenu();
+void executeDeletingSessionsMenu();
+void executeGettingSessionsMenu();
+bool executeDelCopyOrCutText(std::string typeOfCommand, std::string actionForMenu, std::string actionInPast);
+bool chooseRootDelCopyOrCut(std::string action);
+
+bool tryToEnterIndexForSession(int& index);
+bool doesAnySessionExist();
+
+void createSession();
+void setCurrentSessionByIndex(int& index);
+bool setCurrentSessionByName();
+void deleteSessionByIndex(int index);
+bool deleteSessionByName();
+
+void executeMainMenu();
+
 
 bool validateEnteredNumber(std::string option, short firstOption, short lastOption) {
 	if (option.empty())
@@ -735,7 +784,8 @@ void templateForMenusAboutSessions(int& choice, std::string action) {
 	std::cout << "5. Відсортувати сеанси за іменем\n";
 	choice = enterNumberInRange("Ваш вибір: ", 0, 5);
 }
-void templateForExecutingMenusAboutSessions(std::function<void(int&)> mainFunc, std::function<void(int&)> menu, std::function<bool()> actionFuncByName, std::function<void()> additionalFunc = nullptr) {
+void templateForExecutingMenusAboutSessions(std::function<void(int&)> mainFunc, std::function<void(int&)> menu, 
+	std::function<bool()> actionFuncByName, std::function<void()> additionalFunc = nullptr) {
 	int choice, index = -1;
 	bool isActionSuccessfull = false;
 
@@ -776,11 +826,11 @@ void templateForExecutingMenusAboutSessions(std::function<void(int&)> mainFunc, 
 	} while (true);
 }
 
-std::string getTextUsingKeyboard(std::string msg = "Введіть текст") {
+std::string getTextUsingKeyboard() {
 	std::string line, text;
 	int countOfLines = 0;
 
-	std::cout << "\n" << msg << "(зупинити - з наступного рядка введіть \"-1\"): \n";
+	std::cout << "\nВведіть текст (зупинити - з наступного рядка введіть \"-1\"): \n";
 	while (getline(std::cin, line)) {
 		if (line == "-1")
 			break;
@@ -829,7 +879,8 @@ std::string getTextFromClipboard() {
 	}
 }
 
-bool makeActionOnContextByEnteredText(std::string typeOfCommand, std::string actionInPast, std::string textToPaste = "", size_t startIndex = -2, size_t endIndex = -2) {
+bool makeActionOnContextByEnteredText(std::string typeOfCommand, std::string actionInPast, 
+	std::string textToPaste = "", size_t startIndex = -2, size_t endIndex = -2) {
 	if (startIndex == -2 && endIndex == -2) {
 		if (editor->getCurrentText()->empty()) {
 			printNotification("error", "немає тексту, який можна було б замінити!");
@@ -838,7 +889,7 @@ bool makeActionOnContextByEnteredText(std::string typeOfCommand, std::string act
 
 		std::string textForAction;
 
-		textForAction = getTextUsingKeyboard("Введіть текст, над яким бажаєте зробити цю дію");
+		textForAction = getTextUsingKeyboard();
 
 		if (textForAction.empty()) {
 			printNotification("error", "текст не був введений!");
