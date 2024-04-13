@@ -10,8 +10,6 @@ class SessionsHistory;
 
 class Editor {
 private:
-	friend class Program;
-
 	static SessionsHistory* sessionsHistory; //історія сеансів
 	static Session* currentSession; //сеанс, з яким користувач працює в даний момент
 	static std::string* currentText; //текст, який користувач редагує в даний момент
