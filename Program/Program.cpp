@@ -399,7 +399,7 @@ private:
 		*ofs_session << delimiter;
 	}
 
-	static void readSessionsMetadata(SessionsHistory* sessionsHistory, Editor* editor) {
+	static void readSessionsMetadata(Editor* editor) {
 		if (!std::filesystem::exists(METADATA_DIRECTORY))
 			return;
 
@@ -409,9 +409,9 @@ private:
 		available_sessions = getFilepathsForMetadata(METADATA_DIRECTORY);
 
 		for (int i = 0; i < available_sessions.size(); i++)
-			readSessionMetadata(sessionsHistory, editor, available_sessions._Get_container()[i]);
+			readSessionMetadata(editor, available_sessions._Get_container()[i]);
 	}
-	static void readSessionMetadata(SessionsHistory* sessionsHistory, Editor* editor, std::string filepath) {
+	static void readSessionMetadata(Editor* editor, std::string filepath) {
 		std::string line;
 		filepath.erase(0, METADATA_DIRECTORY.size());
 		Session* session = new Session(filepath);
@@ -428,7 +428,7 @@ private:
 		for (int j = 0; j < countOfCommands; j++)
 			readCommandMetadata(editor, &ifs_session, session);
 
-		sessionsHistory->addSessionToEnd(session);
+		editor->getSessionsHistory()->addSessionToEnd(session);
 
 		ifs_session.close();
 	}
@@ -500,7 +500,7 @@ public:
 const std::string FilesManager::METADATA_DIRECTORY = "Metadata\\",
 FilesManager::DATA_DIRECTORY = "Data\\";
 
-void Editor::tryToLoadSessions() { FilesManager::readSessionsMetadata(sessionsHistory, this); }
+void Editor::tryToLoadSessions() { FilesManager::readSessionsMetadata(this); }
 void Editor::tryToUnloadSessions() { FilesManager::writeSessionsMetadata(sessionsHistory); }
 
 Editor::Editor() { this->sessionsHistory = new SessionsHistory(); }
