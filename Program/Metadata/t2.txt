@@ -1,0 +1,32 @@
+5
+4
+PasteCommand
+---
+
+
+Hello!
+
+How are you?
+
+---
+PasteCommand
+---
+ 
+Hello!
+
+How are you?
+
+---
+PasteCommand
+---
+ 
+Hello!Bye
+---
+PasteCommand
+---
+  Hello!Bye
+---
+PasteCommand
+---
+THello!Bye
+---
