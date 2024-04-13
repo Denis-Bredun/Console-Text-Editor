@@ -521,14 +521,9 @@ void Editor::paste(std::string* textToProcess, int startPosition, int endPositio
 	else
 	{
 		if(endPosition == -1)
-		{
-			*textToProcess = " " + *textToProcess;
-			(*textToProcess).replace(0, 2, textToPaste);
-		}
-		else if (endPosition == currentText->size()) {
-			*textToProcess =  *textToProcess + " ";
-			(*textToProcess).replace(currentText->size() - 1, currentText->size() - 1, textToPaste);
-		}
+			(*textToProcess).replace(0, 1, textToPaste);
+		else if (endPosition == textToProcess->size()) 
+			(*textToProcess).replace(textToProcess->size() - 1, textToProcess->size() - 1, textToPaste);
 		else
 			(*textToProcess).replace(startPosition, endPosition - startPosition + 1, textToPaste);
 	}
