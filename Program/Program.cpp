@@ -17,6 +17,9 @@ private:
 	static Session* currentSession; //сеанс, з яким користувач працює в даний момент
 	static std::string* currentText; //текст, який користувач редагує в даний момент
 
+	void tryToLoadSessions();
+	void tryToUnloadSessions();
+
 public:
 	Editor();
 
@@ -25,9 +28,6 @@ public:
 		if(currentText)
 			delete (currentText);
 	}
-
-	void tryToLoadSessions();
-	void tryToUnloadSessions();
 
 	void copy(std::string textToProcess, int startPosition, int endPosition);
 	void paste(std::string* textToProcess, int startPosition, int endPosition, std::string textToPaste);
