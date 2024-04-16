@@ -622,8 +622,11 @@ private:
 	}
 	void deleteForwardCommandsIfNecessary(std::string typeOfCommand) {
 		if (typeOfCommand != "Undo" && typeOfCommand != "Redo" && isThereAnyCommandForward())
-			for (int i = 0; i <= getCountOfForwardCommands(); i++)
+		{
+			int countOfForwardCommands = getCountOfForwardCommands();
+			for (int i = 0; i < countOfForwardCommands; i++)
 				Editor::getCurrentSession()->deleteLastCommand();
+		}
 	}
 
 public:
