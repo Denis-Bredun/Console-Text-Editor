@@ -1,0 +1,33 @@
+8
+4
+PasteCommand
+---
+Hey, 
+---
+PasteCommand
+---
+Hey, Hello!
+---
+PasteCommand
+---
+Hey, Hello, World!
+---
+DeleteCommand
+---
+Hello, World!
+---
+CutCommand
+---
+Hello, World
+---
+CutCommand
+---
+Hello, 
+---
+CutCommand
+---
+Hello
+---
+CutCommand
+---
+---

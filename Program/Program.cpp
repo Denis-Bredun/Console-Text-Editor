@@ -5,82 +5,7 @@
 #include <functional>
 #include <windows.h>
 
-class Session;
-class SessionsHistory;
-
-class Editor {
-private:
-	static SessionsHistory* sessionsHistory; //історія сеансів
-	static Session* currentSession; //сеанс, з яким користувач працює в даний момент
-	static std::string* currentText; //текст, який користувач редагує в даний момент
-
-public:
-	Editor();
-
-	~Editor() {
-		delete sessionsHistory;
-		if(currentText)
-			delete (currentText);
-	}
-
-	void tryToLoadSessions();
-	void tryToUnloadSessions();
-
-	void copy(std::string textToProcess, int startPosition, int endPosition);
-	void paste(std::string* textToProcess, int startPosition, int endPosition, std::string textToPaste);
-	void cut(std::string* textToProcess, int startPosition, int endPosition);
-	void remove(std::string* textToProcess, int startPosition, int endPosition);
-
-	static Session* getCurrentSession();
-	static SessionsHistory* getSessionsHistory();
-	static std::string* getCurrentText();
-	static void setCurrentSession(Session* session);
-	static void setCurrentText(std::string* text);
-
-	static void printCurrentText();
-};
-
-class Command {
-protected:
-	Editor* editor; //редактор, в якому відбувається редагування тексту за допомогою команд
-	int startPosition, endPosition; //початкова та кінцева позиції для вставки, заміни, видалення, копіювання, вирізання
-	std::string textToProcess, textToPaste; //поля для тексту, який обробляємо і для тексту, який вставляємо 
-	Command* previousCommand, * commandToUndoOrRedo; //вказівник на попередню команду (в історії команд щось по типу однонапрямленого списка),
-	//далі - вказівник на команду, яку збираємось скасувати або повторити
-
-public:
-	virtual void execute() = 0;
-	virtual void undo() = 0;
-	virtual Command* copy() = 0;
-
-	void setParameters(std::string typeOfCommand, Command* previousCommand, Command* commandToUndoOrRedo, int startPosition, int endPosition, std::string textToPaste) {
-		if (typeOfCommand == "Undo" || typeOfCommand == "Redo")
-		{
-			this->commandToUndoOrRedo = commandToUndoOrRedo;
-			return;
-		}
-
-		if (startPosition > endPosition && endPosition > -1 && startPosition < Editor::getCurrentText()->size())
-			std::swap(startPosition, endPosition);
-
-		if (startPosition == -1 && endPosition == -1) {
-			startPosition = 0;
-			endPosition = 0;
-		}
-
-		this->startPosition = startPosition;
-		this->endPosition = endPosition;
-		this->textToProcess = *(Editor::getCurrentText());
-		this->previousCommand = previousCommand;
-
-		if (typeOfCommand == "Paste")
-			this->textToPaste = textToPaste;
-	}
-
-	std::string getTextToProcess() { return textToProcess; }
-	void setTextToProcess(std::string textToProcess) { this->textToProcess = textToProcess; }
-	void setPreviousCommand(Command* previousCommand) { this->previousCommand = previousCommand; }
-};
+class Command;
 
 class Session {
 private:
@@ -236,6 +161,80 @@ public:
 		for (Session* session : tempSessions)
 			sessions.push(session);
 	}
+};
+
+class Editor {
+private:
+	static SessionsHistory* sessionsHistory; //історія сеансів
+	static Session* currentSession; //сеанс, з яким користувач працює в даний момент
+	static std::string* currentText; //текст, який користувач редагує в даний момент
+
+public:
+	Editor();
+
+	~Editor() {
+		delete sessionsHistory;
+		if(currentText)
+			delete (currentText);
+	}
+
+	void tryToLoadSessions();
+	void tryToUnloadSessions();
+
+	void copy(std::string textToProcess, int startPosition, int endPosition);
+	void paste(std::string* textToProcess, int startPosition, int endPosition, std::string textToPaste);
+	void cut(std::string* textToProcess, int startPosition, int endPosition);
+	void remove(std::string* textToProcess, int startPosition, int endPosition);
+
+	static Session* getCurrentSession();
+	static SessionsHistory* getSessionsHistory();
+	static std::string* getCurrentText();
+	static void setCurrentSession(Session* session);
+	static void setCurrentText(std::string* text);
+
+	static void printCurrentText();
+};
+
+class Command {
+protected:
+	Editor* editor; //редактор, в якому відбувається редагування тексту за допомогою команд
+	int startPosition, endPosition; //початкова та кінцева позиції для вставки, заміни, видалення, копіювання, вирізання
+	std::string textToProcess, textToPaste; //поля для тексту, який обробляємо і для тексту, який вставляємо 
+	Command* previousCommand, * commandToUndoOrRedo; //вказівник на попередню команду (в історії команд щось по типу однонапрямленого списка),
+	//далі - вказівник на команду, яку збираємось скасувати або повторити
+
+public:
+	virtual void execute() = 0;
+	virtual void undo() = 0;
+	virtual Command* copy() = 0;
+
+	void setParameters(std::string typeOfCommand, Command* previousCommand, Command* commandToUndoOrRedo, int startPosition, int endPosition, std::string textToPaste) {
+		if (typeOfCommand == "Undo" || typeOfCommand == "Redo")
+		{
+			this->commandToUndoOrRedo = commandToUndoOrRedo;
+			return;
+		}
+
+		if (startPosition > endPosition && endPosition > -1 && startPosition < Editor::getCurrentText()->size())
+			std::swap(startPosition, endPosition);
+
+		if (startPosition == -1 && endPosition == -1) {
+			startPosition = 0;
+			endPosition = 0;
+		}
+
+		this->startPosition = startPosition;
+		this->endPosition = endPosition;
+		this->textToProcess = *(Editor::getCurrentText());
+		this->previousCommand = previousCommand;
+
+		if (typeOfCommand == "Paste")
+			this->textToPaste = textToPaste;
+	}
+
+	std::string getTextToProcess() { return textToProcess; }
+	void setTextToProcess(std::string textToProcess) { this->textToProcess = textToProcess; }
+	void setPreviousCommand(Command* previousCommand) { this->previousCommand = previousCommand; }
 };
 
 class CopyCommand : public Command {

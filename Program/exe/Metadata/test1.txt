@@ -1,5 +1,5 @@
-8
-7
+5
+4
 PasteCommand
 ---
 Hello! 
@@ -16,19 +16,7 @@ DeleteCommand
 ---
 Hello
 ---
-DeleteCommand
----
-Hell
----
-DeleteCommand
----
-Hel
----
-DeleteCommand
----
-He
----
 PasteCommand
 ---
-Hessa
+Hello World!
 ---
