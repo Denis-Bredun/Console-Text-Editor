@@ -10,15 +10,9 @@ class SessionsHistory;
 
 class Editor {
 private:
-	friend class Program;
-	friend class FilesManager;
-
 	static SessionsHistory* sessionsHistory; //історія сеансів
 	static Session* currentSession; //сеанс, з яким користувач працює в даний момент
 	static std::string* currentText; //текст, який користувач редагує в даний момент
-
-	void tryToLoadSessions();
-	void tryToUnloadSessions();
 
 public:
 	Editor();
@@ -29,13 +23,19 @@ public:
 			delete (currentText);
 	}
 
+	void tryToLoadSessions();
+	void tryToUnloadSessions();
+
 	void copy(std::string textToProcess, int startPosition, int endPosition);
 	void paste(std::string* textToProcess, int startPosition, int endPosition, std::string textToPaste);
 	void cut(std::string* textToProcess, int startPosition, int endPosition);
 	void remove(std::string* textToProcess, int startPosition, int endPosition);
 
 	static Session* getCurrentSession();
+	static SessionsHistory* getSessionsHistory();
 	static std::string* getCurrentText();
+	static void setCurrentSession(Session* session);
+	static void setCurrentText(std::string* text);
 
 	static void printCurrentText();
 };
@@ -428,7 +428,7 @@ private:
 		for (int j = 0; j < countOfCommands; j++)
 			readCommandMetadata(editor, &ifs_session, session);
 
-		editor->sessionsHistory->addSessionToEnd(session);
+		editor->getSessionsHistory()->addSessionToEnd(session);
 
 		ifs_session.close();
 	}
@@ -541,6 +541,9 @@ void Editor::remove(std::string* textToProcess, int startPosition, int endPositi
 
 Session* Editor::getCurrentSession() { return currentSession; }
 std::string* Editor::getCurrentText() { return currentText; }
+SessionsHistory* Editor::getSessionsHistory() { return sessionsHistory; }
+void Editor::setCurrentSession(Session* session) { currentSession = session; }
+void Editor::setCurrentText(std::string* text) { currentText = text; }
 
 void Editor::printCurrentText() {
 	system("cls");
@@ -700,9 +703,9 @@ private:
 		return isOptionVerified ? stoi(option) : -1;
 	}
 	void readDataFromFile() {
-		std::string filepath = FilesManager::getSessionsDirectory() + editor->currentSession->getName();
+		std::string filepath = FilesManager::getSessionsDirectory() + editor->getCurrentSession()->getName();
 		std::string textFromFile = FilesManager::readSessionData(filepath);
-		editor->currentText = new std::string(textFromFile);
+		editor->setCurrentText(new std::string(textFromFile));
 	}
 	void pauseAndCleanConsole() {
 		system("pause");
@@ -749,7 +752,7 @@ private:
 
 		do
 		{
-			editor->sessionsHistory->printSessionsHistory();
+			editor->getSessionsHistory()->printSessionsHistory();
 			menu(choice);
 			switch (choice)
 			{
@@ -766,7 +769,7 @@ private:
 					case 1:
 					case 2:
 					case 3:
-						index = choice == 1 ? editor->sessionsHistory->size() : choice == 2 ? 1 : -1;
+						index = choice == 1 ? editor->getSessionsHistory()->size() : choice == 2 ? 1 : -1;
 						mainFunc(index);
 						if (index != -1 && additionalFunc)
 							additionalFunc();
@@ -807,14 +810,14 @@ private:
 		return text;
 	}
 	std::string getTextFromClipboard() {
-		if (editor->currentSession->sizeOfClipboard() == 0) {
+		if (editor->getCurrentSession()->sizeOfClipboard() == 0) {
 			printNotification("error", "в буфері обміну ще немає даних!");
 			return "";
 		}
 
-		int choice, sizeOfClipboard = editor->currentSession->sizeOfClipboard();
+		int choice, sizeOfClipboard = editor->getCurrentSession()->sizeOfClipboard();
 
-		editor->currentSession->printClipboard();
+		editor->getCurrentSession()->printClipboard();
 		getTextFromClipboardMenu(choice);
 
 		switch (choice)
@@ -824,13 +827,13 @@ private:
 			system("pause");
 			return "";
 		case 1:
-			return editor->currentSession->getDataFromClipboardByIndex(sizeOfClipboard - 1);
+			return editor->getCurrentSession()->getDataFromClipboardByIndex(sizeOfClipboard - 1);
 		case 2:
-			return editor->currentSession->getDataFromClipboardByIndex(0);
+			return editor->getCurrentSession()->getDataFromClipboardByIndex(0);
 		case 3:
 			choice = enterNumberInRange("Введіть номер даних: ", 1, sizeOfClipboard);
 			if (choice != -1)
-				return editor->currentSession->getDataFromClipboardByIndex(choice - 1);
+				return editor->getCurrentSession()->getDataFromClipboardByIndex(choice - 1);
 			return "";
 		default:
 			return "";
@@ -840,7 +843,7 @@ private:
 	bool makeActionOnContextByEnteredText(std::string typeOfCommand, std::string actionInPast,
 		std::string textToPaste = "", size_t startIndex = -2, size_t endIndex = -2) {
 		if (startIndex == -2 && endIndex == -2) {
-			if (editor->currentText->empty()) {
+			if (editor->getCurrentText()->empty()) {
 				printNotification("error", "немає тексту, який можна було б замінити!");
 				return false;
 			}
@@ -854,7 +857,7 @@ private:
 				return false;
 			}
 
-			startIndex = editor->currentText->find(textForAction);
+			startIndex = editor->getCurrentText()->find(textForAction);
 
 			if (startIndex == std::string::npos) {
 				printNotification("error", "текст не був знайдений!");
@@ -864,8 +867,8 @@ private:
 			if (typeOfCommand == "Paste") {
 				if (startIndex == 0 && textForAction.size() == 1)
 					endIndex = -1;
-				else if (startIndex == editor->currentText->size() - 1 && textForAction.size() == 1)
-					endIndex = editor->currentText->size();
+				else if (startIndex == editor->getCurrentText()->size() - 1 && textForAction.size() == 1)
+					endIndex = editor->getCurrentText()->size();
 				else
 					endIndex = startIndex + textForAction.size() - 1;
 			}
@@ -883,7 +886,7 @@ private:
 	}
 
 	bool undoAction() {
-		if (editor->currentSession->sizeOfCommandsHistory() > 0 && editor->currentSession->getCurIndexInCommHistory() != -1)
+		if (editor->getCurrentSession()->sizeOfCommandsHistory() > 0 && editor->getCurrentSession()->getCurIndexInCommHistory() != -1)
 		{
 			commandsManager->invokeCommand("Undo");
 			printNotification("success", "команда була успішно скасована!");
@@ -905,7 +908,7 @@ private:
 		return isThereAnyCommandForward;
 	}
 	void sortSessions() {
-		editor->sessionsHistory->sortByName();
+		editor->getSessionsHistory()->sortByName();
 		printNotification("success", "сеанси були успішно відсортовані!");
 	}
 
@@ -1007,7 +1010,7 @@ private:
 				system("pause");
 				return false;
 			case 1:
-				makeActionOnContextByEnteredText("Paste", "вставлені", textToPaste, editor->currentText->size() - 1, editor->currentText->size() - 1);
+				makeActionOnContextByEnteredText("Paste", "вставлені", textToPaste, editor->getCurrentText()->size() - 1, editor->getCurrentText()->size() - 1);
 				return true;
 			case 2:
 				makeActionOnContextByEnteredText("Paste", "вставлені", textToPaste, 0, 0);
@@ -1057,7 +1060,7 @@ private:
 				wasTextSuccessfullyChanged = redoAction();
 			}
 			if (wasTextSuccessfullyChanged)
-				FilesManager::writeSessionData(editor->currentSession->getName(), *(editor->currentText));
+				FilesManager::writeSessionData(editor->getCurrentSession()->getName(), *(editor->getCurrentText()));
 		} while (true);
 	}
 	void executeDeletingSessionsMenu() {
@@ -1103,7 +1106,7 @@ private:
 			system("pause");
 			return false;
 		case 1:
-			wasOperationSuccessful = makeActionOnContextByEnteredText(typeOfCommand, actionInPast, "", 0, editor->currentText->size() - 1);
+			wasOperationSuccessful = makeActionOnContextByEnteredText(typeOfCommand, actionInPast, "", 0, editor->getCurrentText()->size() - 1);
 			return wasOperationSuccessful;
 		case 2:
 			wasOperationSuccessful = makeActionOnContextByEnteredText(typeOfCommand, actionInPast);
@@ -1111,7 +1114,7 @@ private:
 		}
 	}
 	bool chooseRootDelCopyOrCut(std::string action) {
-		if (editor->currentText->size() == 0)
+		if (editor->getCurrentText()->size() == 0)
 		{
 			printNotification("error", "немає тексту, який можна було б " + action + "!");
 			return false;
@@ -1129,16 +1132,16 @@ private:
 
 	bool tryToEnterIndexForSession(int& index) {
 		if (index == -1) {
-			index = enterNumberInRange("Введіть номер сеансу: ", 1, editor->sessionsHistory->size());
+			index = enterNumberInRange("Введіть номер сеансу: ", 1, editor->getSessionsHistory()->size());
 			if (index == -1)
 				return false;
 		}
 		return true;
 	}
 	bool doesAnySessionExist() {
-		if (editor->sessionsHistory->isEmpty())
+		if (editor->getSessionsHistory()->isEmpty())
 			printNotification("error", "в даний момент жодного сеансу немає!");
-		return !editor->sessionsHistory->isEmpty();
+		return !editor->getSessionsHistory()->isEmpty();
 	}
 
 	void createSession() {
@@ -1150,7 +1153,7 @@ private:
 		Session* newSession = new Session();
 		if (newSession->setName(filename))
 		{
-			if (editor->sessionsHistory->getSessionByName(filename) != nullptr) {
+			if (editor->getSessionsHistory()->getSessionByName(filename) != nullptr) {
 				delete newSession;
 				printNotification("error", "сеанс з таким іменем вже існує!");
 				return;
@@ -1162,7 +1165,7 @@ private:
 			std::string filepath = FilesManager::getSessionsDirectory() + newSession->getName();
 			std::ofstream file(filepath);
 			file.close();
-			editor->sessionsHistory->addSessionToEnd(newSession);
+			editor->getSessionsHistory()->addSessionToEnd(newSession);
 			printNotification("success", "сеанс був успішно створений!");
 		}
 		else
@@ -1173,22 +1176,22 @@ private:
 	}
 	void setCurrentSessionByIndex(int& index) {
 		if (tryToEnterIndexForSession(index))
-			editor->currentSession = editor->sessionsHistory->getSessionByIndex(index - 1);
+			editor->setCurrentSession(editor->getSessionsHistory()->getSessionByIndex(index - 1));
 	}
 	bool setCurrentSessionByName() {
 		std::string name;
 		std::cout << "\nВведіть ім'я сеансу: ";
 		getline(std::cin, name);
-		auto session = editor->sessionsHistory->getSessionByName(name);
+		auto session = editor->getSessionsHistory()->getSessionByName(name);
 		if (session == nullptr)
 			printNotification("error", "сеанса з таким іменем не існує!");
 		else
-			editor->currentSession = session;
+			editor->setCurrentSession(session);
 		return session != nullptr;
 	}
 	void deleteSessionByIndex(int index = -1) {
 		if (tryToEnterIndexForSession(index)) {
-			std::string nameOfSession = editor->sessionsHistory->deleteSessionByIndex(index - 1);
+			std::string nameOfSession = editor->getSessionsHistory()->deleteSessionByIndex(index - 1);
 			std::string pathToSession = FilesManager::getSessionsDirectory() + nameOfSession;
 			remove(pathToSession.c_str());
 
@@ -1199,7 +1202,7 @@ private:
 		std::string name;
 		std::cout << "\nВведіть ім'я сеансу: ";
 		getline(std::cin, name);
-		auto filename = editor->sessionsHistory->deleteSessionByName(name);
+		auto filename = editor->getSessionsHistory()->deleteSessionByName(name);
 		if (filename.empty())
 		{
 			printNotification("error", "сеанса з таким іменем не існує!");
