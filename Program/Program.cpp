@@ -403,7 +403,6 @@ private:
 			return;
 
 		std::stack<std::string> available_sessions;
-		std::string line;
 
 		available_sessions = getFilepathsForMetadata(METADATA_DIRECTORY);
 
