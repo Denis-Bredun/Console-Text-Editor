@@ -1,5 +1,5 @@
 8
-3
+7
 PasteCommand
 ---
 Hey, 
@@ -16,18 +16,28 @@ DeleteCommand
 ---
 Hello, World!
 ---
+PasteCommand
+---
+Hello, World!How do you feel yourself?
+The sun is shining so bright!
+I with it never ended.
+---
+PasteCommand
+---
+Hello, World!The sun is shining so bright!
+I with
+The sun is shining so bright!
+I with it never ended.
+---
+DeleteCommand
+---
+Hello, World!
+The sun is shining so bright!
+I with it never ended.
+---
 CutCommand
 ---
-Hello, World
----
-CutCommand
----
-Hello, 
----
-CutCommand
----
-Hello
----
-CutCommand
----
+Hello, World!
+The sun is shining so bright!
+
 ---
