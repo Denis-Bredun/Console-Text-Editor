@@ -1,5 +1,5 @@
-8
-7
+10
+9
 PasteCommand
 ---
 Hey, 
@@ -38,6 +38,18 @@ I with it never ended.
 CutCommand
 ---
 Hello, World!
+The sun is shining so bright!
+
+---
+PasteCommand
+---
+Goodbye, my friend!
+The sun is shining so bright!
+
+---
+DeleteCommand
+---
+Goodbye!
 The sun is shining so bright!
 
 ---
